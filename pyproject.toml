@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "renpy-toolkit"
+version = "1.0.0"
+description = "Inspect, translate and verify Ren'Py games — including releases that ship only compiled .rpyc scripts."
+readme = "plugin/dsh-renpy-toolkit/README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "the renpy-toolkit authors" }]
+keywords = ["renpy", "visual-novel", "translation", "localization", "rpa", "rpyc"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Internationalization",
+    "Topic :: Games/Entertainment",
+]
+# Deliberately empty: the toolkit is pure standard library. The two optional
+# extras below gate specific features and raise a readable DependencyError
+# when missing, rather than failing at import time.
+dependencies = []
+
+[project.optional-dependencies]
+fonts = ["fonttools>=4.0"]
+xlsx = ["openpyxl>=3.0"]
+all = ["fonttools>=4.0", "openpyxl>=3.0"]
+
+[project.scripts]
+renpy-toolkit = "renpy_toolkit.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/AMeYunCloud/renpy-toolkit"
+Repository = "https://github.com/AMeYunCloud/renpy-toolkit"
+Issues = "https://github.com/AMeYunCloud/renpy-toolkit/issues"
+Changelog = "https://github.com/AMeYunCloud/renpy-toolkit/blob/main/CHANGELOG.md"
+Upstream = "https://github.com/renpy/renpy"
+Documentation = "https://www.renpy.org/doc/html/"
+
+[tool.setuptools]
+# The package lives under plugin/dsh-renpy-toolkit/, so both the package root
+# and its data files need explicit routing.
+package-dir = { "" = "plugin/dsh-renpy-toolkit" }
+
+[tool.setuptools.packages.find]
+where = ["plugin/dsh-renpy-toolkit"]
+include = ["renpy_toolkit*"]
+
+[tool.setuptools.package-data]
+renpy_toolkit = ["data/*.tsv"]

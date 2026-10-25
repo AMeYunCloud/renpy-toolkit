@@ -1,0 +1,87 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+
+# Backups this toolkit writes
+*.bak
+*.orig
+*.rej
+*~
+
+# Build / packaging output
+build/
+dist/
+*.egg-info/
+.eggs/
+wheelhouse/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------------------------------------------------------------------------
+# Local-only material. These never go into the repository.
+# ---------------------------------------------------------------------------
+
+# A real game used for end-to-end testing. Several GB, and the game's content
+# is not ours to redistribute.
+/test/
+
+# First-hand evidence collected while reverse-engineering engine behaviour:
+# session transcripts, probes, and a complete set of finished translations for
+# a third-party game.
+/_evidence/
+
+# Scratch output from `tl gen`, probe dumps, temporary copies.
+/_scratch/
+/_probe_dir/
+/_decomp_test/
+/_rtk-probe-test/
+/rtk-probe-test/
+/.acl-recovery/
+
+# A translation workspace belongs to one specific title (terminology,
+# character notes, translation rules). Useful material, but not general.
+/work/
+
+# `tl gen` writes its probe and dump here, inside the game directory.
+.renpy-toolkit-gen/
+
+# Format probing output. The write-up and the hand-written samples belong in
+# the repository; full dumps of a real game's script do not — those are a third
+# party's dialogue, tens of megabytes of it, and not ours to redistribute.
+/_fmt_demo/tl_raw/
+/_fmt_demo/tl_nb/
+/_fmt_demo/tl_ledger/
+/_fmt_demo/tl_gen*/
+
+# One-off probes used while writing that report. Each hardcodes a local path to
+# the game being probed, so they are useless (and leaky) anywhere else.
+/_fmt_demo/t_*.py
+
+# Local game paths and per-machine settings.
+/local.conf
+*.local
+
+# Archives and compiled game scripts: large, and usually third-party content.
+*.rpa
+*.rpyc
+*.rpymc
+*.rpyb
+# 提交信息临时文件（避免被 git add -A 带进提交）
+_commitmsg*.txt
+_msg*.txt
+_m.txt
+_dist/release-notes-*.md

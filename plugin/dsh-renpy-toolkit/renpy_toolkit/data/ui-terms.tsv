@@ -1,0 +1,171 @@
+# Ren'Py 标准 UI 术语表（引擎自带界面文字的中文译名）
+# 这些串来自 renpy/common/，任何 Ren'Py 游戏都会出现，可以跨工程复用。
+# source<TAB>target<TAB>category<TAB>banned<TAB>scope<TAB>note
+# 用 --terms 指定；可以与你自己工程的 terms.tsv 一起用（可重复指定）。
+%b %d, %H:%M	%m月%d日 %H:%M	ui		common	
+(attributes)	（属性）	ui		common	
+(channel)	（通道）	ui		common	
+(default properties omitted)	（省略默认属性）	ui		common	
+(filename)	（文件名）	ui		common	
+(no properties affect the displayable)	（无属性影响可显示对象）	ui		common	
+(statement)	（语句）	ui		common	
+(tag)	（标签）	ui		common	
+(transform)	（变换）	ui		common	
+(transition)	（转场）	ui		common	
+<repr() failed>	<repr() 失败>	ui		common	
+Add	添加	ui		common	
+after choices	选择之后	ui		common	
+An error has occured:	发生错误：	ui		common	
+An error is being simulated.	正在模拟错误。	ui		common	
+Are you sure you want to begin skipping?	确定要开始跳过吗？	ui		common	
+Are you sure you want to end the replay?	确定要结束回放吗？	ui		common	
+Are you sure you want to quit?	确定要退出吗？	ui		common	
+Are you sure?	确定吗？	ui		common	
+Attributes:	属性：	ui		common	
+Audio Filename:	音频文件名：	ui		common	
+Auto forward	自动推进	ui		common	
+auto wait	自动等待	ui		common	
+auto-forward time	自动推进时间	ui		common	
+Automatically Choose	自动选择	ui		common	
+Behind:	在后：	ui		common	
+Cancel	取消	ui		common	
+Change	更改	ui		common	
+Channel:	通道：	ui		common	
+Checking for updates.	正在检查更新。	ui		common	
+Clipboard	剪贴板	ui		common	
+Clipboard voicing enabled.	剪贴板语音已启用。	ui		common	
+Console	控制台	ui		common	
+Console (Shift+O)	控制台 (Shift+O)	ui		common	
+Contacting App Store\nPlease Wait...	正在联系应用商店\n请稍候……	ui		common	
+Could not verify update signature.	无法验证更新签名。	ui		common	
+Debug	调试	ui		common	
+Default	默认	ui		common	
+Developer Menu	开发者菜单	ui		common	
+display	显示	ui		common	
+Displayable Inspector	可显示对象检查器	ui		common	
+Done	完成	ui		common	
+Downloading the updates.	正在下载更新。	ui		common	
+emphasize audio	强调音频	ui		common	
+emphasize audio transition	强调音频转场	ui		common	
+Empty Slot.	空存档。	ui		common	
+Enable	启用	ui		common	
+Failed to save screenshot as %s.	截图保存失败：%s。	ui		common	
+File page auto	自动存档页	ui		common	
+File page quick	快速存档页	ui		common	
+Filename List	文件名列表	ui		common	
+Finishing up.	正在完成。	ui		common	
+Font Override	字体覆盖	ui		common	
+Force ANGLE Renderer	强制ANGLE渲染器	ui		common	
+Force ANGLE2 Renderer	强制ANGLE2渲染器	ui		common	
+Force GL Renderer	强制GL渲染器	ui		common	
+Force GL2 Renderer	强制GL2渲染器	ui		common	
+Force GLES Renderer	强制GLES渲染器	ui		common	
+Force GLES2 Renderer	强制GLES2渲染器	ui		common	
+Hide deleted	隐藏已删除	ui		common	
+Hide Image Load Log (F4)	隐藏图像加载日志 (F4)	ui		common	
+High Contrast Text	高对比度文字	ui		common	
+Ignore	忽略	ui		common	
+Image Attributes	图像属性	ui		common	
+Image Load Log	图像加载日志	ui		common	
+Image Location Picker	图像位置选择器	ui		common	
+Interactive Director (D)	交互式导演 (D)	ui		common	
+joystick	手柄	ui		common	
+Joystick Mapping	手柄映射	ui		common	
+joystick...	手柄……	ui		common	
+Line Spacing Scaling	行距缩放	ui		common	
+Location	位置	ui		common	
+Mouse position: %r	鼠标位置: %r	ui		common	
+music volume	音乐音量	ui		common	
+Next	下一个	ui		common	
+Next file page.	下一页。	ui		common	
+Nothing to inspect.	没有可检查的内容。	ui		common	
+Off	关闭	ui		common	
+Position copied to clipboard.	位置已复制到剪贴板。	ui		common	
+Preparing to download the updates.	正在准备下载更新。	ui		common	
+Previous	上一个	ui		common	
+Previous file page.	上一页。	ui		common	
+Proceed	继续	ui		common	
+Quick load.	快速读档。	ui		common	
+Quick save complete.	快速存档完成。	ui		common	
+Quick save.	快速存档。	ui		common	
+Quits the game.	退出游戏。	ui		common	
+Rectangle copied to clipboard.	矩形已复制到剪贴板。	ui		common	
+Rectangle: %r	矩形: %r	ui		common	
+Reload	重新加载	ui		common	
+Reload Game (Shift+R)	重新加载游戏 (Shift+R)	ui		common	
+Remove	移除	ui		common	
+Renderer	渲染器	ui		common	
+Reset	重置	ui		common	
+Return to the developer menu	返回开发者菜单	ui		common	
+Right-click or escape to quit.	右键点击或按Esc退出。	ui		common	
+Saved screenshot as %s.	截图已保存为 %s。	ui		common	
+Self-Voicing	语音朗读	ui		common	
+Self-voicing disabled.	语音朗读已禁用。	ui		common	
+Self-voicing enabled.	语音朗读已启用。	ui		common	
+Self-Voicing Volume Drop	语音朗读音量降低	ui		common	
+Show deleted	显示已删除	ui		common	
+show empty window	显示空窗口	ui		common	
+Show Image Load Log (F4)	显示图像加载日志 (F4)	ui		common	
+Size	大小	ui		common	
+skip	跳过	ui		common	
+Skip Mode	跳过模式	ui		common	
+skip transitions	跳过转场动画	ui		common	
+skip unseen	跳过未读	ui		common	
+sound volume	音效音量	ui		common	
+Statement:	语句：	ui		common	
+Style	样式	ui		common	
+Tag:	标签：	ui		common	
+Text Size Scaling	文字大小缩放	ui		common	
+text speed	文字播放速度	ui		common	
+Text-to-speech	文字转语音	ui		common	
+The update file was not downloaded.	更新文件未下载。	ui		common	
+The updates have been installed.	更新已安装。	ui		common	
+The updates were cancelled.	更新已取消。	ui		common	
+This program is up to date.	此程序已是最新版本。	ui		common	
+Transforms:	变换：	ui		common	
+Transition:	转场：	ui		common	
+transitions	转场动画	ui		common	
+Type to filter:	输入以筛选：	ui		common	
+Unpacking the updates.	正在解包更新。	ui		common	
+Updater	更新器	ui		common	
+Variable Viewer	变量查看器	ui		common	
+video sprites	视频精灵	ui		common	
+voice volume	语音音量	ui		common	
+{#month_short}Apr	{#month_short}4月	ui		common	
+{#month_short}Aug	{#month_short}8月	ui		common	
+{#month_short}Dec	{#month_short}12月	ui		common	
+{#month_short}Feb	{#month_short}2月	ui		common	
+{#month_short}Jan	{#month_short}1月	ui		common	
+{#month_short}Jul	{#month_short}7月	ui		common	
+{#month_short}Jun	{#month_short}6月	ui		common	
+{#month_short}Mar	{#month_short}3月	ui		common	
+{#month_short}May	{#month_short}5月	ui		common	
+{#month_short}Nov	{#month_short}11月	ui		common	
+{#month_short}Oct	{#month_short}10月	ui		common	
+{#month_short}Sep	{#month_short}9月	ui		common	
+{#month}April	{#month}4月	ui		common	
+{#month}August	{#month}8月	ui		common	
+{#month}December	{#month}12月	ui		common	
+{#month}February	{#month}2月	ui		common	
+{#month}January	{#month}1月	ui		common	
+{#month}July	{#month}7月	ui		common	
+{#month}June	{#month}6月	ui		common	
+{#month}March	{#month}3月	ui		common	
+{#month}May	{#month}5月	ui		common	
+{#month}November	{#month}11月	ui		common	
+{#month}October	{#month}10月	ui		common	
+{#month}September	{#month}9月	ui		common	
+{#weekday_short}Fri	{#weekday_short}周五	ui		common	
+{#weekday_short}Mon	{#weekday_short}周一	ui		common	
+{#weekday_short}Sat	{#weekday_short}周六	ui		common	
+{#weekday_short}Sun	{#weekday_short}周日	ui		common	
+{#weekday_short}Thu	{#weekday_short}周四	ui		common	
+{#weekday_short}Tue	{#weekday_short}周二	ui		common	
+{#weekday_short}Wed	{#weekday_short}周三	ui		common	
+{#weekday}Friday	{#weekday}星期五	ui		common	
+{#weekday}Monday	{#weekday}星期一	ui		common	
+{#weekday}Saturday	{#weekday}星期六	ui		common	
+{#weekday}Sunday	{#weekday}星期日	ui		common	
+{#weekday}Thursday	{#weekday}星期四	ui		common	
+{#weekday}Tuesday	{#weekday}星期二	ui		common	
+{#weekday}Wednesday	{#weekday}星期三	ui		common	

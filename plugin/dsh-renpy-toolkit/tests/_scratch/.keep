@@ -1,0 +1,3 @@
+"""Scratch directory for tests. Kept in the repo so that it exists before the
+test process starts (sandboxes grant write access by pre-existing path).
+Contents are deleted at the end of every test; this file keeps the directory."""
