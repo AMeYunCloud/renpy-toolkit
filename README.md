@@ -21,7 +21,7 @@ renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
 │       ├── renpy_toolkit/  27 个模块
-│       ├── tests/          449 个 unittest 用例
+│       ├── tests/          450 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
@@ -67,7 +67,7 @@ pip install .              # 得到 renpy-toolkit 命令
 pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl（XLSX 读写）
 ```
 
-不装也能用：`cd plugin && python -m renpy_toolkit --help`。三种形态背后的代码是同一份，
+不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。三种形态背后的代码是同一份，
 依赖都仅标准库；上面两个是可选能力，缺失时会给出可读的 `DependencyError` 而不是 import 失败。
 
 ### 一键包（便携发布形态）
@@ -129,7 +129,7 @@ python tools/make_release.py             # 真的发布
 （`renpy.game.script.translator.file_translates` 与 SL2 屏幕树）。
 
 ```bash
-cd plugin
+cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write
 ```
 
@@ -189,8 +189,8 @@ wrote 53 file(s)            耗时 19.6s
 ## 开发
 
 ```bash
-cd plugin
-python -m unittest discover -s tests -t tests -q     # 449 passed
+cd plugin/dsh-renpy-toolkit
+python -m unittest discover -s tests -t tests -q     # 450 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -217,7 +217,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 449 tests
+python -m unittest discover -s tests -t tests -q     # 450 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

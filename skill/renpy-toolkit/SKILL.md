@@ -55,15 +55,20 @@ python <skill>/scripts/rptk.py --version     # 期望 renpy-toolkit 1.0.0
 | 「汉化这个游戏」「翻译全部文本」 | A. 从零生成骨架 |
 | 「这个游戏只有 rpyc」 | A + 反编译（`decompile`） |
 | 「翻译好了帮我检查」 | B. 校验 |
+| 「还差多少没翻」 | B（`tl missing` / `tl stats`） |
 | 「导出成表格给译者」 | C. 表格往返 |
 | 「人名/道具译名不统一」 | D. 术语字典 |
 | 「游戏更新了，旧译不要丢」 | E. port |
 | 「更新后多出来一堆 untranslated」 | E |
+| 「中文TL太乱，排一下序 / 拆一下」 | E（`tl sort` / `tl split`） |
+| 「批量改一批译法」 | E（`tl polish`） |
 | 「界面文字没翻译」 | A（strings 层）+ G |
 | 「有些句子死活翻译不过来」 | F. 运行时拼装 |
+| 「同一句话在不同界面要不同译法」 | G（`tl context`） |
 | 「字体显示成方块 / 缺字」 | H. 字体 |
 | 「拆这个 rpa / 打包」 | I. 归档 |
 | 「新建一个 Ren'Py 工程」 | J. 脚手架 |
+| 「我有官方 SDK，想用它」 | K. sdk |
 
 ---
 
@@ -91,6 +96,17 @@ python <skill>/scripts/rptk.py tl gen <game-dir> chinese --outdir <tl-out> --wri
 - 生成后**立刻**用 B 校验，并把 `--expect-dialogue <N>` 钉住块数。
 - 临时探针目录默认保留（里面有 `rtk_strings.json`，G/F 两步要用）；落在游戏安装
   目录里时加 `--clean-scratch`。
+
+### 拿不到游戏运行时时的退路：`tl init`
+
+`tl gen` 要能启动游戏。机器上没有对应解释器、或游戏被改坏到跑不起来时，用
+`tl init` 从**已有的 `tl/<lang>` 克隆**出一个空骨架（不需要 SDK、不需要启动游戏）：
+
+```bash
+python <skill>/scripts/rptk.py tl init <game-dir> chinese --source <existing-tl-dir> --write
+```
+
+它默认**永不覆盖**已存在的目标文件，要覆盖显式加 `--force`。
 
 它输出的三类东西要分别对待：
 
@@ -182,6 +198,15 @@ The chinese translation contains 58,249 dialogue blocks, ...
 > 打包发行版的自带解释器常常写不了 `%TEMP%`（实测 `FileNotFoundError: No usable
 > temporary directory`）。跑之前把 `TMP`/`TEMP` 指到一个可写目录。
 
+### 还差哪些没翻
+
+```bash
+python <skill>/scripts/rptk.py tl missing <tl-dir> --language chinese
+```
+
+只列**译文仍等于原文**的条目（与 `tl verify` 的 `UNTRANSLATED` 同源判定），
+按文件分组。表格式的进度清点用 `tl stats`；两者都不需要启动游戏。
+
 ---
 
 ## C. 表格往返
@@ -241,6 +266,34 @@ python <skill>/scripts/rptk.py tl port <old-tl-dir> <new-tl-dir> [--write]
 
 换代后通常会剩下一批「新骨架里有、旧译本没有」的块：那是**真的新增文本**，
 不是搬运失败。反过来「旧译本有、新骨架没有」的是作者删掉的文本，可以归档掉。
+
+### 整理排版（sort / split）
+
+```bash
+# 按 # game/x.rpy:NNN 的源文件与行号排序，可同时写 Event Index 与分段标记
+python <skill>/scripts/rptk.py tl sort <tl-dir> [--index] [--sections] [--write]
+
+# 把「一个 strings 块塞多条 old/new」拆成标准形态（每个字面量一个块）
+python <skill>/scripts/rptk.py tl split <tl-dir> <game-dir> [--write]
+```
+
+`sort` 只在**同一个** `translate python:` / `translate style:` 块周围建立屏障、不跨过它 ——
+切语言时这类块是按文件顺序执行的，重排会改变最终生效的样式与变量。
+`--index`/`--sections` 写出来的是纯注释，引擎完全不读，删掉不影响加载。
+
+`split` 需要 `<game-dir>` 来反查每个字面量的原始出处，以便给拆出来的块补
+`# game/x.rpy:NNN` 注释。
+
+### 批量润色脚本（polish）
+
+逐行改几万块太慢，实践中会攒出一批一次性的 `polish_script_*.py`。`polish` 把它们
+当**数据字典**执行（不 `exec` 任何代码）：
+
+```bash
+python <skill>/scripts/rptk.py tl polish <tl-dir> <script.py> [...] [--file NAME] [--write]
+```
+
+默认 dry-run，并汇总命中/未命中；加 `--show-problems` 列出未命中原因（最多 40 条）。
 
 ---
 
@@ -390,6 +443,38 @@ python <skill>/scripts/rptk.py project audit <game-dir>
 
 ---
 
+## K. 驱动官方 SDK（sdk）
+
+装了 Ren'Py SDK 时，`sdk` 组把官方命令行原样包一层（它只做参数转交与超时，
+不重新实现引擎逻辑）。`--sdk` 省略时自动在常见安装位置找 `renpy.exe` / `renpy.sh`：
+
+```bash
+python <skill>/scripts/rptk.py sdk find                      # 报出找到的 SDK 路径
+python <skill>/scripts/rptk.py sdk translate <game-dir> chinese --count
+python <skill>/scripts/rptk.py sdk lint      <game-dir>
+python <skill>/scripts/rptk.py sdk dialogue  <game-dir> chinese --strings
+python <skill>/scripts/rptk.py sdk extract-strings <game-dir> chinese strings.json
+python <skill>/scripts/rptk.py sdk merge-strings   <game-dir> chinese strings.json --replace
+python <skill>/scripts/rptk.py sdk compile    <game-dir>
+```
+
+**什么时候该用它、什么时候不该：**
+
+- `sdk translate` 只扫磁盘上真实存在的 `.rpy`，对 `.rpyc`-only 的发行版几乎生成不出东西 ——
+  那是 `tl gen` 的适用场景（A 节）。
+- `sdk translate --count` 是**唯一**能问出「官方口径还缺多少」的方式，用来交叉核对
+  `tl verify` 的统计。
+- `sdk lint` 是权威对账工具（B 节），但它需要完整可运行的工程；改过源码后跑它，
+  顺便能发现语法错误。
+- `sdk extract-strings` / `merge-strings` 是官方的 JSON 往返，语料较小时够用；
+  大批量仍建议走 C 节的 `tl table`（多了公式注入防护与按 id 对齐）。
+- `sdk compile` 会把 `.rpy` 编成 `.rpyc`。**改完 TL 后不要急着编译** ——
+  裸 `.rpyc` 与 `.rpy` 同时存在时加载规则见 I 节，删错一个就会出现「改了没生效」。
+
+`--timeout` 默认值对慢机器可能偏紧，跑大工程时显式给大一点。
+
+---
+
 ## 硬规则（踩过坑，不要绕）
 
 1. **写 TL 文件必须保留原文件的 BOM 与行尾**。逐文件保留，绝不统一。
@@ -431,9 +516,23 @@ python $S tl port $L /tmp/tl-new --write
 # 4 校验
 python $S tl verify /tmp/tl-new --expect-dialogue <N> --game-dir $G
 
-# 5 装回游戏（先备份旧目录）
+# 5 拿不准还缺什么时
+python $S tl missing /tmp/tl-new --language chinese
+
+# 6 装回游戏（先备份旧目录）
 #    注意目录名必须与 --language 一致，否则 translate 块头与目录对不上，
 #    引擎会报 `A translation for "X" already exists`
+```
+
+可选补充（按需插入上面流程）：
+
+```bash
+python $S tl hardcoded apply /tmp/tl-new --write      # 给无 _() 包裹的界面串打标记
+python $S tl untranslatable <dump.json>               # f-string 清单
+python $S tl fix-fstrings <dump.json> --language chinese --outdir /tmp/tl-new --write
+python $S font check --tl /tmp/tl-new                 # 字体缺字
+python $S tl sort /tmp/tl-new --index --sections --write
+python $S tl glossary check /tmp/tl-new --ui-terms --terms <dict.tsv> --missing --drift
 ```
 
 第 5 步是最容易翻车的地方：**输出目录名必须等于 `--language`**。

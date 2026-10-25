@@ -486,6 +486,15 @@ class TestSelftest(unittest.TestCase):
         _code, out, _err = _run("--selftest")
         self.assertIn("renpy-toolkit", out)
 
+    def test_selftest_counts_every_tl_action_not_just_the_dispatched_ones(self) -> None:
+        # Five tl actions (stats/verify/missing/table/apply) are served by
+        # cmd_tl itself, so a count taken from _TL_ACTION_HANDLERS understates
+        # the CLI. The self-check prints this number, so it has to be right.
+        _code, out, _err = _run("--selftest")
+        expected = len(cli._tl_actions())
+        self.assertIn("%d 个 tl 子命令" % expected, out)
+        self.assertGreater(expected, len(cli._TL_ACTION_HANDLERS))
+
     def test_selftest_writes_nothing_into_the_cwd(self) -> None:
         with temp_dir() as root:
             before = sorted(os.listdir(root))

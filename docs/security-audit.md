@@ -162,8 +162,8 @@ README 里也写明"覆盖率是上界，不是承诺"。
 ## 六、复现方式
 
 ```powershell
-cd plugin
-python -m unittest discover -s tests -t tests -q      # 422 tests
+cd plugin\dsh-renpy-toolkit
+python -m unittest discover -s tests -t tests -q      # 450 tests
 ```
 
 `test_safeio.py`（14 例）、`test_binary.py::TestRpa`（10 例，含

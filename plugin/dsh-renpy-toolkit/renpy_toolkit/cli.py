@@ -1614,6 +1614,26 @@ def cmd_decompile(args: argparse.Namespace, out: _Out) -> int:
 # ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
+def _tl_actions() -> list[str]:
+    """Return the ``tl`` sub-commands the parser actually registers.
+
+    ``_TL_ACTION_HANDLERS`` only lists the actions that need their own
+    dispatcher; ``stats``/``verify``/``missing``/``table``/``apply`` are served
+    by ``cmd_tl`` itself. Reporting the dispatch table's length therefore
+    understates the CLI, so read the parser instead.
+    """
+    parser = build_parser()
+    for action in parser._actions:                      # noqa: SLF001 - argparse
+        if isinstance(action, argparse._SubParsersAction):
+            tl_parser = action.choices.get("tl")
+            if tl_parser is None:
+                continue
+            for sub in tl_parser._actions:              # noqa: SLF001
+                if isinstance(sub, argparse._SubParsersAction):
+                    return sorted(sub.choices)
+    return sorted(_TL_ACTION_HANDLERS)
+
+
 def cmd_selftest(args: argparse.Namespace, out: _Out) -> int:
     """Check that this copy of the package actually works on this machine.
 
@@ -1707,7 +1727,10 @@ def cmd_selftest(args: argparse.Namespace, out: _Out) -> int:
     try:
         missing = [g for g in ("rpa", "tl", "sdk", "font", "decompile", "project")
                    if g not in _cli._HANDLERS]
-        actions = len(_cli._TL_ACTION_HANDLERS)
+        # Count what the parser actually offers, not what the dispatch table
+        # happens to specialise: five tl actions (stats/verify/missing/table/
+        # apply) share cmd_tl, so _TL_ACTION_HANDLERS alone undercounts them.
+        actions = len(_tl_actions())
         if missing or actions < 10:
             raise AssertionError("missing groups=%r tl actions=%d" % (missing, actions))
         note("commands", "%d 个命令组、%d 个 tl 子命令" % (len(_cli._HANDLERS), actions))
