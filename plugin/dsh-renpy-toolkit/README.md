@@ -7,7 +7,7 @@
 ```bash
 cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 501 个用例
+python -m unittest discover -s tests -t tests -q     # 505 个用例
 ```
 
 ## 目录
@@ -383,6 +383,14 @@ python -m renpy_toolkit tl backup restore game/tl/chinese 2930389e --write
 python -m renpy_toolkit tl backup prune game/tl/chinese --keep 20 --write
 ```
 
+**没有 git 时 `--backup-mode git` 自动降级为 `bak`**，并在 stderr 打一行
+`warning:` 说明，命令照常跑完（退出码不变）。理由：`.bak` 本身就是可用的备份，
+需要的东西一样都不用装，没必要因为一条环境问题把「我只想改个译文」拦住。降级必须
+出声——否则用户会以为快照在攒，等需要回退时才发现没有。
+
+真正无法降级的是**操作快照**的命令：`tl backup list/show/restore/save/prune/size`
+在没有 git 时报错并以退出码 3 结束，因为不存在「`show` 某个 revision」的 `.bak` 版本。
+
 **为什么用影子仓库而不是用户自己的仓库**：TL 目录很可能已经在一个 git 仓库里，
 往那儿 `commit` 会改别人的提交历史。影子仓库是一个独立的 `--git-dir`，对象库和
 index 都在 `.renpy-toolkit.git` 里，**译文目录本身除了那个点目录不会多出任何东西**，
@@ -641,7 +649,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **501 个用例全绿**，约 39 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **505 个用例全绿**，约 39 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -720,7 +728,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 501 tests
+python -m unittest discover -s tests -t tests -q     # 505 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

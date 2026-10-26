@@ -9,19 +9,26 @@
 三种模式
 --------
 ``bak``
-    传统行为，在目标旁边写 ``<名>.bak``。**向后兼容的默认值**，因为它不依赖
-    任何外部命令。
+    传统行为，在目标旁边写 ``<名>.bak``。**默认值**，因为它不依赖任何外部命令。
 ``git``
     用 :mod:`renpy_toolkit.gitbackup` 的影子仓库记录。好处是不在译文目录里
-    堆副本、每次改动都有独立版本、可列出/回退到任意一次。
+    堆副本、每次改动都有独立版本、可列出/回退到任意一次。**机器上没有 git 时
+    自动降级为 ``bak``**，并打印一行说明，不会中断命令。
 ``none``
     不备份。只在调用方明确知道自己在做什么时用（例如已经在自己的仓库里，
     或者写的是可再生的中间产物）。
 
 ``auto``
-    构造 :func:`keep` 的调用方可以要求 ``auto``：有 ``git`` 就用 ``git``，
-    否则退回 ``bak``。**不要把它设成模块默认值** —— 默认值决定行为，不该
-    取决于碰巧装没装 git。
+    明确表达「有 git 就用 git，否则用 .bak」。``git`` 模式本身在缺 git 时也会
+    降级成 ``bak``，所以两者现在的落地行为相同；区别只在措辞：``auto`` 是
+    「随机器而定」，``git`` 是「我要 git」，此时降级必须出声告知。
+
+为什么缺 git 不报错而是降级
+---------------------------
+报错能保证「不会静默没有备份」，但代价是一个只想改译文的用户被一条环境问题拦住。
+``.bak`` 本身就是可用的备份形态，需要的东西一样都不用装。所以选择：降级 + 明确
+告知。真正无法降级的是**操作快照**的命令（``tl backup list/show/restore``）——
+那类命令由 :func:`git_required` 拒绝，因为没有 ``.bak`` 版的「show 某个 revision」。
 
 选择方式（优先级从高到低）
 --------------------------
@@ -51,7 +58,9 @@ __all__ = [
     "MODES",
     "backup_root",
     "describe",
+    "downgrade_note",
     "get_mode",
+    "git_required",
     "keep",
     "reset_mode",
     "set_mode",
@@ -91,12 +100,14 @@ def set_mode(mode: str) -> str:
     ``auto`` is resolved here (once), so a caller that asked for ``auto`` gets a
     stable answer for the rest of the run instead of a per-file decision.
 
-    Asking for ``git`` when git cannot be found is refused **now**, not at the
-    first write. Deferring the check sounds tidier but fails badly: a command
-    that does not write anything (``tl verify``, ``tl stats``, ``tl missing``)
-    would run to completion with exit code 0 while the user believes backups
-    are being taken. Silently having no backup is the one outcome worth
-    spending an error message on.
+    Asking for ``git`` on a machine without git degrades to ``bak`` instead of
+    failing. The reasoning: a backup that silently does not happen is the worst
+    outcome, but refusing to run at all is only marginally better -- the user's
+    immediate goal was to edit a translation, and ``.bak`` copies are a working
+    form of backup that needs nothing installed. So the mode is resolved to
+    something usable and :func:`downgrade_note` reports what changed, which the
+    CLI prints. Callers that must have git (``tl backup``, which cannot operate
+    on ``.bak`` files) check :func:`git_required` themselves.
     """
     global _mode
     normalised = (mode or "").strip().lower()
@@ -105,15 +116,44 @@ def set_mode(mode: str) -> str:
             "unknown backup mode %r; expected one of: %s"
             % (mode, ", ".join(MODES))
         )
-    if normalised == MODE_AUTO:
+    if normalised == MODE_GIT and not _git_available():
+        normalised = MODE_BAK
+    elif normalised == MODE_AUTO:
         normalised = MODE_GIT if _git_available() else MODE_BAK
-    elif normalised == MODE_GIT and not _git_available():
-        raise MissingToolError(
-            "git（2.15 以上）",
-            "请装 git 并放进 PATH，或改用 --backup-mode bak",
-        )
     _mode = normalised
     return _mode
+
+
+def downgrade_note(requested: str | None) -> str | None:
+    """One line explaining a ``git`` -> ``bak`` downgrade, or ``None``.
+
+    Silent fallback would leave the user believing snapshots exist when they do
+    not, so every entry point that resolves a mode prints this.
+    """
+    wanted = (requested or "").strip().lower()
+    if wanted != MODE_GIT:
+        return None
+    if get_mode() != MODE_BAK:
+        return None
+    return (
+        "找不到可用的 git（2.15 以上），本次备份改用 .bak 副本；"
+        "需要快照历史请装 git 并放进 PATH"
+    )
+
+
+def git_required(feature: str = "该命令") -> None:
+    """Raise unless git is usable.
+
+    Used by features that operate *on* snapshots rather than taking them --
+    ``tl backup list/show/restore``. There the fallback is meaningless: there is
+    no ``.bak`` equivalent of "show revision ca0777d7".
+    """
+    if _git_available():
+        return
+    raise MissingToolError(
+        "git（2.15 以上）",
+        f"{feature}需要快照历史，无法回落到 .bak；请装 git 并放进 PATH",
+    )
 
 
 def reset_mode() -> None:
@@ -202,10 +242,20 @@ def keep(dest: str, previous: bytes | None = None, *, message: str = "") -> str 
     from . import gitbackup
 
     if not gitbackup.available():
-        raise MissingToolError(
-            "git（2.15 以上）",
-            "请装 git 或改用 --backup-mode bak",
-        )
+        # Reachable only if git vanished mid-run (set_mode already degrades to
+        # bak). Falling back is better than losing the backup entirely.
+        target = dest + ".bak"
+        if previous is not None:
+            with open(target, "wb") as handle:
+                handle.write(previous)
+        else:
+            with open(dest, "rb") as src, open(target, "wb") as dst:
+                while True:
+                    chunk = src.read(1 << 20)
+                    if not chunk:
+                        break
+                    dst.write(chunk)
+        return target
     root = backup_root(dest)
     store = gitbackup.GitBackups(root)
     snapshot = store.save([dest], message=message or f"before writing {os.path.basename(dest)}")

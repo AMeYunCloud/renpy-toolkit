@@ -78,27 +78,57 @@ class TestModeSelection(_ModeCase):
         self.assertIn("none", backup.describe())
 
     @unittest.skipIf(gitbackup.available(), "git is installed here")
-    def test_git_mode_without_git_is_refused_up_front(self) -> None:
-        """Asking for git when git is missing must fail now, not at first write.
+    def test_git_mode_without_git_degrades_to_bak(self) -> None:
+        """No git means .bak copies, not a refusal to run.
 
-        Deferring the check lets a read-only command (``tl verify``) finish with
-        exit code 0 while the user believes backups are being taken.
+        ``.bak`` is a working form of backup that needs nothing installed, so a
+        user who only wanted to edit a translation should not be blocked by a
+        missing program. The downgrade must be reported, though: silently
+        backing up by a different method than the one asked for is how people
+        end up believing snapshots exist.
         """
-        with self.assertRaises(Exception) as caught:
-            backup.set_mode(backup.MODE_GIT)
-        self.assertIn("--backup-mode bak", str(caught.exception))
+        self.assertEqual(backup.set_mode(backup.MODE_GIT), backup.MODE_BAK)
+        note = backup.downgrade_note(backup.MODE_GIT)
+        self.assertIsNotNone(note)
+        self.assertIn("git", note)
+        self.assertIn(".bak", note)
 
     @unittest.skipIf(gitbackup.available(), "git is installed here")
     def test_environment_cannot_smuggle_in_an_unusable_git_mode(self) -> None:
+        """``RTK_BACKUP=git`` degrades too, rather than being returned verbatim."""
         os.environ["RTK_BACKUP"] = "git"
         backup.reset_mode()
-        with self.assertRaises(Exception):
-            backup.get_mode()
+        self.assertEqual(backup.get_mode(), backup.MODE_BAK)
+
+    @unittest.skipIf(gitbackup.available(), "git is installed here")
+    def test_git_required_still_refuses_snapshot_commands(self) -> None:
+        """``tl backup list/show/restore`` have no .bak equivalent, so they fail."""
+        with self.assertRaises(Exception) as caught:
+            backup.git_required("tl backup")
+        self.assertIn("git", str(caught.exception))
+
+    @unittest.skipIf(gitbackup.available(), "git is installed here")
+    def test_git_mode_still_writes_a_bak_copy(self) -> None:
+        """The degraded mode has to actually keep the bytes, not just report it."""
+        backup.set_mode(backup.MODE_GIT)
+        target = os.path.join(self.root, "x.rpy")
+        self._write(target, "new content")
+        kept = backup.keep(target, b"old content")
+        self.assertEqual(kept, target + ".bak")
+        with open(kept, "rb") as handle:
+            self.assertEqual(handle.read(), b"old content")
 
     def test_auto_never_lands_on_git_without_git(self) -> None:
         """``auto`` must degrade to ``bak`` rather than pick an unusable mode."""
         self.assertEqual(backup.set_mode(backup.MODE_AUTO),
                          backup.MODE_GIT if gitbackup.available() else backup.MODE_BAK)
+
+    def test_downgrade_note_is_quiet_for_other_modes(self) -> None:
+        backup.set_mode(backup.MODE_BAK)
+        self.assertIsNone(backup.downgrade_note(backup.MODE_BAK))
+        self.assertIsNone(backup.downgrade_note(None))
+        backup.set_mode(backup.MODE_AUTO)
+        self.assertIsNone(backup.downgrade_note(backup.MODE_AUTO))
 
 
 class TestKeep(_ModeCase):

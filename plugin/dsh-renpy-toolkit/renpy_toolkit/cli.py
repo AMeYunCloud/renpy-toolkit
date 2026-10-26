@@ -1189,10 +1189,7 @@ def cmd_tl_backup(args: argparse.Namespace, out: _Out) -> int:
         raise InvalidRequestError("tl backup: choose list / show / restore / save / prune / size")
 
     if not gitbackup.available():
-        raise InvalidRequestError(
-            "找不到可用的 git（需要 2.15+）；Git 备份不可用。"
-            "改用 --backup-mode bak 在目标旁边留 .bak"
-        )
+        backup.git_required("tl backup")
 
     root = os.path.abspath(args.tl_dir)
     if not os.path.isdir(root):
@@ -1958,9 +1955,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # Pin the backup mode once, before any handler can write. ``auto`` is
     # resolved here (git present -> git) so every write in one run behaves the
-    # same way instead of re-deciding per file. This happens inside the guarded
-    # block because asking for ``git`` without git is a user error that has to
-    # leave through the normal "error: ..." path, not a traceback.
+    # same way instead of re-deciding per file. A ``git`` request on a machine
+    # without git degrades to ``bak`` and says so: silently having no backup is
+    # the outcome worth spending a warning on, while refusing to run would block
+    # a user who only wanted to edit a translation.
     requested = getattr(args, "backup_mode", None)
 
     if getattr(args, "selftest", False):
@@ -1981,7 +1979,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if requested:
             chosen = backup.set_mode(requested)
-            if chosen != requested:
+            note = backup.downgrade_note(requested)
+            if note:
+                out.warn(f"warning: {note}")
+            elif chosen != requested:
                 out.say(f"backup mode: {requested} -> {chosen}")
         return handler(args, out)
     except DependencyError as exc:

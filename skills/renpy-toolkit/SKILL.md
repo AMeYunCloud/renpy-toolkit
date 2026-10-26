@@ -254,6 +254,12 @@ python <skill>/scripts/rptk.py tl backup prune <tl-dir> --keep 20 --write
 用户自己的仓库。每个快照存完整树，CRLF 与 BOM 按字节保真。`tl backup` 没有 `init`：
 第一次真正写盘时自动建库。
 
+**没有 git 时**：`--backup-mode git` 自动降级为 `bak`，stderr 打一行 `warning:`，
+命令照常跑完。这是刻意的——`.bak` 本身就是可用的备份，不该因为环境问题拦住一次
+改译文。但 `tl backup list/show/restore` 这类**操作快照**的命令会报错退出（码 3），
+因为没有 `.bak` 版的「show 某个 revision」。降级不代表可以假设快照存在：要回退到
+历史版本，先确认 `tl backup list` 能跑。
+
 ---
 
 ## D. 术语字典

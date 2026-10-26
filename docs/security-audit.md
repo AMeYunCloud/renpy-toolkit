@@ -163,7 +163,7 @@ README 里也写明"覆盖率是上界，不是承诺"。
 
 ```powershell
 cd plugin\dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q      # 501 tests
+python -m unittest discover -s tests -t tests -q      # 505 tests
 ```
 
 `test_safeio.py`（14 例）、`test_binary.py::TestRpa`（10 例，含
@@ -276,17 +276,22 @@ python -m unittest discover -s tests -t tests -q -p "test_gitbackup*.py"   # 21 
 
 **修法**（三处，均由测试锁定）：
 
-1. `set_mode()` 当场校验：要 `git` 但 `gitbackup.available()` 为假 → 抛
-   `MissingToolError`，消息直接给出装什么、或者改用 `--backup-mode bak`。
-2. `get_mode()` 不再原样返回 `RTK_BACKUP`，而是转交 `set_mode()`，环境变量不能
-   绕过校验。`auto` 仍然只解析一次（有 git 用 git，没有就退到 bak），不会因此失败。
-3. CLI 把 `set_mode()` 调用挪进 `main()` 的异常处理块内，否则它自己就是一条
-   traceback；并让 `MissingToolError` 映射到 `EXIT_ENVIRONMENT`（3）而不是
-   `EXIT_FINDINGS`（1）——退出码 1 的语义是"你的译文有问题"，在这里是假话。
+1. `set_mode()` 当场解析：要 `git` 但 `gitbackup.available()` 为假 → **降级为
+   `bak`**。这里改过一次：第一版选择抛 `MissingToolError` 拒绝运行，但那把一个
+   只想改译文的用户拦在一条环境问题前面，而 `.bak` 本身就是可用的备份形态。
+   最终取舍是「能降级就降级，但必须出声」——静默降级和静默失效一样危险，只是
+   沉默的位置不同。
+2. `get_mode()` 不再原样返回 `RTK_BACKUP`，而是转交 `set_mode()`，所以环境变量
+   走同一套解析，也会降级、也会被 `downgrade_note()` 报告。
+3. CLI 在 `set_mode()` 之后调 `backup.downgrade_note()`，降级时打 `warning:`；
+   并把调用挪进 `main()` 的异常处理块内，避免它自己成为一条 traceback。真正
+   **无法降级**的只有操作快照的命令（`tl backup list/show/restore/save/prune/size`），
+   它们经 `backup.git_required()` 报错并映射到 `EXIT_ENVIRONMENT`（3）。
+   退出码 1 的语义是"你的译文有问题"，用在这里是假话。
 
 **同时修掉的测试污染**：`main()` 钉住的是进程级全局状态，新加的 CLI 测试跑完会
 把模式留在 `none`/`auto`，导致同一轮里后面的 `test_tl.test_write_creates_backup`
-找不到它期望的 `.bak`。三个新用例改为在 `setUp`/`addCleanup` 里
+找不到它期望的 `.bak`。新用例改为在 `setUp`/`addCleanup` 里
 `backup.reset_mode()` 并保存/恢复 `RTK_BACKUP`。连跑两遍全套确认无顺序依赖。
 
 **复现**：
@@ -296,6 +301,14 @@ python -m unittest discover -s tests -t tests -q -p "test_gitbackup*.py"   # 21 
 $env:PATH = (($env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch 'git' }) -join ';')
 cd plugin\dsh-renpy-toolkit
 python -m renpy_toolkit --backup-mode git tl verify <某个 tl 目录>
-# 期望：error: 找不到可用的 git（2.15 以上）；请装 git 并放进 PATH，或改用 --backup-mode bak
+# 期望：stderr 出现 warning: 找不到可用的 git（2.15 以上），本次备份改用 .bak 副本…
+# 期望退出码：0（命令本身照常完成）
+
+python -m renpy_toolkit tl backup list <某个 tl 目录>
+# 期望：error: …tl backup 需要快照历史，无法回落到 .bak…
 # 期望退出码：3
 ```
+
+端到端验证（无 git 时真实写盘确实留下 `.bak`）：`tl table` 导出 → 改 `target` 列 →
+`tl apply --write`，结果 `.bak` 存在且内容等于覆盖前原文、`.renpy-toolkit.git` 未被
+创建、两条命令都打印了降级 warning。

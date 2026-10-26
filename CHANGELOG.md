@@ -116,6 +116,13 @@ whose `game/` directory holds 50 `.rpyc` files and no `.rpy` sources at all.
   + `read-tree` + `commit-tree` without touching an index the user can see.
 - `tl backup list` / `show` / `restore` / `prune` / `size`. Snapshots store
   complete trees, so any revision restores whole rather than replaying diffs.
+- Without git, `--backup-mode git` degrades to `bak` and says so on stderr; the
+  command still finishes with its usual exit code. `.bak` is a usable backup and
+  asking for a snapshot is no reason to block a translation edit on a missing
+  program. Snapshot *inspection* cannot degrade — `tl backup list/show/restore/
+  save/prune/size` exit 3 without git, because there is no `.bak` spelling of
+  "show me revision 2930389e". The degradation is loud on purpose: a silent one
+  would look exactly like a snapshot history that is quietly accumulating.
 - Three byte-fidelity traps, all covered by round-trip tests: Git for Windows
   ships `core.autocrlf=true` system-wide, which rewrites CRLF to LF on the way
   into a blob (defeated with `--no-filters` plus `-c core.autocrlf=false`);

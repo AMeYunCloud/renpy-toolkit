@@ -532,17 +532,28 @@ class TestBackupModeInCli(unittest.TestCase):
         self.assertEqual(code, cli.EXIT_USAGE)
         self.assertIn("invalid choice", err)
 
-    def test_git_mode_without_git_exits_with_environment_error(self) -> None:
+    def test_git_mode_without_git_degrades_and_warns(self) -> None:
+        """Exit 0 with a warning: the run proceeds, on .bak instead of git."""
         from renpy_toolkit import gitbackup
         if gitbackup.available():
             self.skipTest("git is installed here")
         with temp_dir() as root:
-            code, out, err = _run("--backup-mode", "git", "tl", "stats", root)
+            code, _out, err = _run("--backup-mode", "git", "tl", "stats", root)
+        self.assertEqual(code, cli.EXIT_OK, msg=err)
+        self.assertIn("warning:", err)
+        self.assertIn(".bak", err)
+        self.assertNotIn("Traceback", err)
+
+    def test_snapshot_commands_still_require_git(self) -> None:
+        """``tl backup`` operates on snapshots, so degrading makes no sense."""
+        from renpy_toolkit import gitbackup
+        if gitbackup.available():
+            self.skipTest("git is installed here")
+        with temp_dir() as root:
+            code, _out, err = _run("tl", "backup", "list", root)
         self.assertEqual(code, cli.EXIT_ENVIRONMENT, msg=err)
         self.assertIn("error:", err)
-        self.assertIn("--backup-mode bak", err)
         self.assertNotIn("Traceback", err)
-        self.assertEqual(out.strip(), "")
 
     def test_auto_mode_never_fails_for_a_missing_git(self) -> None:
         with temp_dir() as root:
