@@ -466,7 +466,7 @@ def make_zip() -> int:
 # launcher already has a documented search order. What it embeds instead is a
 # README that names that order.
 
-SKILL_SRC = os.path.join(ROOT, "skill", "renpy-toolkit")
+SKILL_SRC = os.path.join(ROOT, "skills", "renpy-toolkit")
 SKILL_NAME = "renpy-toolkit-skill-%s" % VERSION
 SKILL_ZIP = os.path.join(DIST, "skill", SKILL_NAME + ".zip")
 
@@ -485,7 +485,7 @@ SKILL_README = """renpy-toolkit skill {version} -- how to install
        ./plugin/renpy_toolkit/__init__.py
 
    So a git checkout of renpy-toolkit needs nothing at all: the skill lives in
-   ``skill/renpy-toolkit/`` and finds ``plugin/dsh-renpy-toolkit/`` two levels
+   ``skills/renpy-toolkit/`` and finds ``plugin/dsh-renpy-toolkit/`` two levels
    up. If you only have the portable zip, unpack it anywhere and set
    ``RPTK_HOME`` to that folder.
 
@@ -503,7 +503,7 @@ Getting the toolkit itself: https://github.com/AMeYunCloud/renpy-toolkit
 
 
 def build_skill() -> int:
-    """Write dist/skill/<name>/ from skill/renpy-toolkit; returns file count."""
+    """Write dist/skill/<name>/ from skills/renpy-toolkit; returns file count."""
     import shutil as _shutil
 
     if not os.path.isdir(SKILL_SRC):

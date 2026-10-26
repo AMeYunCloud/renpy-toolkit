@@ -7,7 +7,7 @@
 ```bash
 cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 450 个用例
+python -m unittest discover -s tests -t tests -q     # 501 个用例
 ```
 
 ## 目录
@@ -20,6 +20,7 @@ python -m unittest discover -s tests -t tests -q     # 450 个用例
   - [全量骨架生成 `tl gen`](#全量骨架生成tl-gen) —— 入口，`.rpyc`-only 也有效
   - [反编译器](#只有-rpyc-的游戏也能读源码反编译器)
   - [导出 → 翻译 → 回填 → 校验](#汉化导出--翻译--回填--校验)
+  - [备份：`--backup-mode` 与 `tl backup`](#备份--backup-mode-与-tl-backup)
   - [译文整理 `sort` / `split` / `hardcoded`](#译文整理sort--split--hardcoded)
   - [游戏更新后不丢译文 `port`](#游戏更新后不丢译文port)
   - [术语字典与润色脚本 `glossary` / `polish`](#术语字典与润色脚本glossary--polish)
@@ -36,7 +37,7 @@ python -m unittest discover -s tests -t tests -q     # 450 个用例
 ## 模块地图
 
 ```
-renpy_toolkit/                      27 个模块
+renpy_toolkit/                      29 个模块
 ├── __init__.py     包门面，__all__ 汇总
 ├── errors.py       统一异常层级（ToolkitError 为根）
 │
@@ -57,6 +58,8 @@ renpy_toolkit/                      27 个模块
 ├── protect.py      Ren'Py 文本标签与占位符保护
 ├── verify.py       TL 完整性与标识符正确性校验
 ├── tables.py       译文表导入导出（JSON / CSV / XLSX / PO）
+├── backup.py       备份策略调度（.bak / 影子 Git 仓库 / 不备份）
+├── gitbackup.py    影子仓库实现（hash-object + commit-tree，不碰用户仓库）
 │
 │  ── 制作 ──
 ├── scaffold.py     新工程脚手架
@@ -110,8 +113,9 @@ renpy_toolkit/                      27 个模块
   不重排缩进。未修改的文件 `to_bytes()` 与原文件**逐字节相同**（有测试守着）。
 - **不做静默降级**：缺 `fontTools` / `openpyxl` 时抛带安装提示的 `ImportError`；
   无法安全定位写入点时抛 `UnsafeWriteError` 而不是猜。
-- **不破坏现场**：`write(backup=True)` 先写 `.bak`；`sdk.py` 默认 `dry_run=True`，
-  只返回命令行。
+- **不破坏现场**：写盘前先保留旧内容，方式由 `--backup-mode` 决定（默认 `bak`
+  在同目录留 `<名>.bak`；`git` 用影子仓库，可列出/回退到任意一次；`none` 不备份）；
+  `sdk.py` 默认 `dry_run=True`，只返回命令行。
 - **转义按 Ren'Py 语义**：译文里的换行写成两个字符 `\n`（真实换行会劈开语句、
   触发 `MISSING_TRANS_LINE` / `UNCLOSED_QUOTE`）；含 `\"` 的值自动转成 raw string。
   注意校验器看的是**盘上原文**（`SayLine.raw` / `StringPair.new_raw`），不是解码后的
@@ -170,7 +174,15 @@ translate chinese start_a55bd194:
 `tl gen` 会在游戏目录下建一个临时探针目录（`<game>/.renpy-toolkit-gen/`），写入一个
 注册了自定义命令的 `.rpy`，通过 `RENPY_SEARCHPATH` 注入，然后用游戏自带的
 `lib/py3-*/python.exe` 启动。探针把结果写成 JSON，主进程读回并生成 TL。全程**不改
-游戏脚本**，跑完自动清理（`--clean-scratch`）。
+游戏脚本**；默认保留该目录（里面是 `rtk_strings.json`，`tl hardcoded` / `tl
+untranslatable` 还要用），加 `--clean-scratch` 则跑完删掉。
+
+落点不是写死的。游戏自带的解释器常比调用方受限（自建运行时、沙箱），本机的
+`%TEMP%` 对它未必可写，所以按 `RTK_SCRATCH` → `--outdir` 父目录 → `%TEMP%` →
+`~/.renpy-toolkit` → `<game>/.renpy-toolkit-gen` → 当前工作目录的顺序逐个探测，取
+第一个**游戏自己的解释器**真能写进去的。当前工作目录排最后是有原因的：写不了
+`%TEMP%` 的运行时会把当前目录当作自己的临时目录，一旦排在前面，几万行剧情就会落进
+调用方所站的那棵树里。要指定位置就设 `RTK_SCRATCH`。
 
 ### 没有游戏运行时怎么办（`tl init`）
 
@@ -194,7 +206,7 @@ python -m renpy_toolkit tl init <game> chinese --source game/tl/Spanish --write
 # 先看会产出什么，不写盘
 python -m renpy_toolkit decompile dir game/tl/chinese -o work/tl
 
-# 确认后落盘（已存在的 .rpy 默认不覆盖，--backup 先存 .bak）
+# 确认后落盘（已存在的 .rpy 默认不覆盖，覆盖前先备份旧内容）
 python -m renpy_toolkit decompile dir game/tl/chinese -o work/tl --write
 
 # 校验：每个 .rpyc 解出来的标识符 / strings / say 数量必须和源一致
@@ -234,7 +246,7 @@ python -m renpy_toolkit tl missing game/tl/chinese
 # 1. 把 tl/chinese 全部翻译单元导出成表（PO 便于接 Poedit / Weblate / LLM）
 python -m renpy_toolkit tl table game/tl/chinese -o strings.po
 
-# 2. 翻译后回填（默认 dry-run，加 --write 才落盘，并自动写 .bak 备份）
+# 2. 翻译后回填（默认 dry-run，加 --write 才落盘，并先备份旧内容）
 python -m renpy_toolkit tl apply game/tl/chinese strings.po            # 预览
 python -m renpy_toolkit tl apply game/tl/chinese strings.po --write    # 落盘
 
@@ -242,7 +254,7 @@ python -m renpy_toolkit tl apply game/tl/chinese strings.po --write    # 落盘
 python -m renpy_toolkit tl verify game/tl/chinese --strict --fullwidth
 ```
 
-退出码：`0` 通过 / `1` 发现问题 / `2` 用法错误 / `3` 缺依赖或找不到 SDK，可直接进 CI。
+退出码：`0` 通过 / `1` 发现问题 / `2` 用法错误 / `3` 环境不具备（缺 git、缺 Ren'Py SDK 等），可直接进 CI。
 
 `tl verify` 的检查项都对着**真实成品译料**调过误报，依据记录在
 [`docs/text-tags-and-interpolation.md`](../../docs/text-tags-and-interpolation.md)。
@@ -283,7 +295,7 @@ from renpy_toolkit import tl
 doc = tl.parse_tl_file("game/tl/chinese/script.rpy")
 tl.apply_new_text(doc, "start_a55bd194", "早上好。")     # 对白，按标识符
 tl.set_string_new(doc, "Start Game", "开始游戏")          # strings，按 old
-doc.write()                                              # 自动 .bak 备份
+doc.write()                                              # 落盘前先备份旧内容
 ```
 
 - 两者都接收**解码后的文本**：要换行传真换行，要引号直接传 `"`，函数内部负责转义
@@ -346,6 +358,47 @@ label **第一次出现**的行号，一个 label 一行。这不是省事，是
 把每个哈希撞车的块当成新 label，索引反而更大。
 
 `--sections` 的 `# --- <label> ---` 标记用同一套规则，所以两者永远对齐。
+
+## 备份：`--backup-mode` 与 `tl backup`
+
+改译文是反复小步的动作，所以每次写盘前都会先保留旧内容。保留方式由一个开关
+决定，所有写盘命令（`tl apply` / `tl sort` / `tl split` / `tl port` / `tl polish` /
+`tl hardcoded apply` / `tl context` / `rpa pack` / `decompile dir` …）都走同一条路：
+
+| 模式 | 落点 | 什么时候用 |
+| --- | --- | --- |
+| `bak`（默认） | 目标旁 `<名>.bak` | 只想留一份可立刻对比的副本 |
+| `git` | `<tl>/.renpy-toolkit.git` 影子仓库 | 想回退到任意一次改动，又不想在译文目录里堆副本 |
+| `none` | 不备份 | 文件已在别的版本控制里，或写的是可再生的中间产物 |
+| `auto` | 有 `git` 就用 `git`，否则 `bak` | 一次性脚本里不想写死 |
+
+```bash
+# 全局开关（也可用环境变量 RTK_BACKUP 指定）
+python -m renpy_toolkit --backup-mode git tl polish game/tl/chinese -s batch.py --write
+
+# 看备份历史 / 取回某个版本 / 只保留最近 20 个
+python -m renpy_toolkit tl backup list game/tl/chinese --files
+python -m renpy_toolkit tl backup show game/tl/chinese 2930389e script.rpy
+python -m renpy_toolkit tl backup restore game/tl/chinese 2930389e --write
+python -m renpy_toolkit tl backup prune game/tl/chinese --keep 20 --write
+```
+
+**为什么用影子仓库而不是用户自己的仓库**：TL 目录很可能已经在一个 git 仓库里，
+往那儿 `commit` 会改别人的提交历史。影子仓库是一个独立的 `--git-dir`，对象库和
+index 都在 `.renpy-toolkit.git` 里，**译文目录本身除了那个点目录不会多出任何东西**，
+也不会出现 `.git`。它用 `hash-object -w` + `commit-tree` 直接造提交，不碰工作区、
+不跑 `git add`。
+
+每个快照存的是**完整树**（不是 diff），所以任意一个版本都能整份取回。三个必须
+按字节保真的地方都已经处理掉：`core.autocrlf` 会让 Git for Windows 把 CRLF 存成
+LF（用 `--no-filters` + `-c core.autocrlf=false` 关掉），读回走 `cat-file blob`
+而不是 `git show`（后者会过 smudge 过滤），写回是二进制。
+
+`.rpa` 归档动辄几个 GB，`bak` 模式做分块复制不读进内存；`git` 模式要哈希整份文件，
+这是可回退快照的代价，调用方自己选的模式。
+
+`tl backup` 没有 `init`：备份库在第一次真正写盘时自动创建，单独初始化只会留下一个
+空仓库让人误以为已经备份过了。
 
 ## 游戏更新后不丢译文（`port`）
 
@@ -588,7 +641,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **450 个用例全绿**，约 5 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **501 个用例全绿**，约 39 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -667,7 +720,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 450 tests
+python -m unittest discover -s tests -t tests -q     # 501 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

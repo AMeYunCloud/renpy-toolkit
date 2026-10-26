@@ -32,6 +32,7 @@ __all__ = [
     "FontError",
     "InvalidRequestError",
     "MissingDependencyError",
+    "MissingToolError",
     "ParseError",
     "ProjectError",
     "ProtectError",
@@ -99,6 +100,22 @@ class DependencyError(ToolkitError, ImportError):
 
 #: Alias kept for readability at call sites: ``raise MissingDependencyError(...)``.
 MissingDependencyError = DependencyError
+
+
+class MissingToolError(ToolkitError):
+    """An external program the chosen feature relies on is not on ``PATH``.
+
+    Distinct from :class:`DependencyError`, which is specifically about a pip
+    package: the fix here is installing a program (git, a Ren'Py SDK), not
+    ``pip install``, so the message must not suggest one. Kept outside the
+    exception hierarchy of "the user asked for something invalid": the request
+    was fine, the machine is not set up for it.
+    """
+
+    def __init__(self, tool: str, hint: str = "") -> None:
+        self.tool = tool
+        tail = f"；{hint}" if hint else ""
+        super().__init__(f"找不到可用的 {tool}{tail}")
 
 
 class TLError(ToolkitError):

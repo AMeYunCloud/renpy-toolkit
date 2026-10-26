@@ -98,7 +98,7 @@ ported+tags    exit=1  53 file(s), 58249 block(s); coverage 60921/60927 (100.0%)
 ```
 
 新增 12 个测试（`TestTagTables` 7 个 + `TestCustomTagDiscovery` 5 个），当时全套
-**385 tests OK**（当前 450）。其中 `test_outlinecolor_and_plain_are_closeable` 与
+**385 tests OK**（当前 495）。其中 `test_outlinecolor_and_plain_are_closeable` 与
 `test_engine_self_closing_tags_are_not_closeable` 是直接照着引擎表写的回归，
 表再被改错就会立刻失败。
 

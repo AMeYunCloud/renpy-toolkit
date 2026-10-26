@@ -24,6 +24,15 @@ wheelhouse/
 venv/
 env/
 
+# Node dependency trees. The DSH plugin half (`lib/`) has no runtime
+# dependencies of its own — it imports the host's @deepseek-ai/* packages as
+# peers. A local node_modules exists only to run the JS smoke test, and it is a
+# junction into the installed profile, so it must never be committed.
+node_modules/
+
+# JS smoke-test scratch.
+/_smoke.mjs
+
 # Editors
 .vscode/
 .idea/
@@ -85,3 +94,7 @@ _commitmsg*.txt
 _msg*.txt
 _m.txt
 _dist/release-notes-*.md
+
+# 一次性探针脚本：都写死了本机绝对路径和被测游戏位置，属于本地取证工具，
+# 不是发布内容。留在工作区随便跑，但不进版本库。
+/_*.py

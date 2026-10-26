@@ -1,0 +1,53 @@
+{
+  "name": "dsh-renpy-toolkit",
+  "version": "1.0.0",
+  "description": "Ren'Py 汉化与制作工具集：从发行版 .rpyc 生成全量中文 TL 骨架、校验译文、移植旧译本、术语一致性检查、字体与归档处理。Ren'Py translation toolkit: full TL skeleton generation from compiled-only releases, verification, porting, glossary, fonts and .rpa archives.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "renpy",
+    "translation",
+    "localization",
+    "visual-novel",
+    "galgame"
+  ],
+  "license": "MIT",
+  "author": "AMeYunCloud",
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "plugin/dsh-renpy-toolkit/renpy_toolkit",
+    "skills",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AMeYunCloud/renpy-toolkit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AMeYunCloud/renpy-toolkit/issues"
+  },
+  "homepage": "https://github.com/AMeYunCloud/renpy-toolkit#readme",
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-skill": ">=0.2.1-rc.3",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.3"
+  }
+}

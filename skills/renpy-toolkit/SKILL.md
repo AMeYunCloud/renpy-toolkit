@@ -57,6 +57,7 @@ python <skill>/scripts/rptk.py --version     # 期望 renpy-toolkit 1.0.0
 | 「翻译好了帮我检查」 | B. 校验 |
 | 「还差多少没翻」 | B（`tl missing` / `tl stats`） |
 | 「导出成表格给译者」 | C. 表格往返 |
+| 「改错了想回到上一版 / 别覆盖我的译文」 | C2. 备份与回退 |
 | 「人名/道具译名不统一」 | D. 术语字典 |
 | 「游戏更新了，旧译不要丢」 | E. port |
 | 「更新后多出来一堆 untranslated」 | E |
@@ -95,7 +96,9 @@ python <skill>/scripts/rptk.py tl gen <game-dir> chinese --outdir <tl-out> --wri
 - 首次跑会启动游戏一次，正常几秒到几十秒（实测 58,249 句的发行版约 20 秒）。
 - 生成后**立刻**用 B 校验，并把 `--expect-dialogue <N>` 钉住块数。
 - 临时探针目录默认保留（里面有 `rtk_strings.json`，G/F 两步要用）；落在游戏安装
-  目录里时加 `--clean-scratch`。
+  目录里时加 `--clean-scratch`。落点按 `RTK_SCRATCH` → `--outdir` 父目录 → `%TEMP%`
+  → `~/.renpy-toolkit` → `<game>/.renpy-toolkit-gen` → 当前目录的顺序探测，取第一个
+  游戏解释器真能写的；要指定就设 `RTK_SCRATCH`。
 
 ### 拿不到游戏运行时时的退路：`tl init`
 
@@ -162,7 +165,7 @@ python <skill>/scripts/rptk.py tl verify <tl-dir> \
     --strict --fullwidth
 ```
 
-退出码：`0` 通过 / `1` 发现问题 / `2` 用法错误 / `3` 缺依赖，可直接进 CI。
+退出码：`0` 通过 / `1` 发现问题 / `2` 用法错误 / `3` 环境不具备（缺 git、缺 SDK 等），可直接进 CI。
 
 `--game-dir` 用于发现游戏自定义的文本标签（`config.custom_text_tags`），
 否则自定义标签会被当未知标签报出来。
@@ -215,7 +218,7 @@ python <skill>/scripts/rptk.py tl missing <tl-dir> --language chinese
 # 导出（PO 便于接 Poedit / Weblate / LLM；也支持 csv/tsv/xlsx/json）
 python <skill>/scripts/rptk.py tl table <tl-dir> -o strings.po
 python <skill>/scripts/rptk.py tl apply <tl-dir> strings.po           # 预览
-python <skill>/scripts/rptk.py tl apply <tl-dir> strings.po --write   # 落盘 + .bak
+python <skill>/scripts/rptk.py tl apply <tl-dir> strings.po --write   # 落盘（先备份旧内容）
 ```
 
 `apply` 默认 dry-run。表格里的 `source` 是**原文**，`target` 是译文；只按 `id`
@@ -223,6 +226,33 @@ python <skill>/scripts/rptk.py tl apply <tl-dir> strings.po --write   # 落盘 +
 
 CSV/XLSX 导出时以 `=` `+` `-` `@` 开头的单元格会前置一个 `'`（公式注入防护），
 读回时自动还原。
+
+---
+
+## C2. 备份与回退
+
+每次写盘前都会保留旧内容，方式由全局开关 `--backup-mode` 决定（也可用环境变量
+`RTK_BACKUP`）：
+
+| 模式 | 落点 | 用处 |
+| --- | --- | --- |
+| `bak`（默认） | 目标旁 `<名>.bak` | 立刻能对比的一份副本 |
+| `git` | `<tl>/.renpy-toolkit.git` 影子仓库 | 回退到任意一次改动，译文目录不堆副本 |
+| `none` | 不备份 | 已在别的版本控制里 |
+| `auto` | 有 `git` 用 `git`，否则 `bak` | 脚本里不想写死 |
+
+```bash
+python <skill>/scripts/rptk.py --backup-mode git tl polish <tl-dir> -s batch.py --write
+
+python <skill>/scripts/rptk.py tl backup list <tl-dir> --files
+python <skill>/scripts/rptk.py tl backup show <tl-dir> <rev> script.rpy
+python <skill>/scripts/rptk.py tl backup restore <tl-dir> <rev> --write
+python <skill>/scripts/rptk.py tl backup prune <tl-dir> --keep 20 --write
+```
+
+影子仓库是独立的 `--git-dir`，**不会在译文目录里创建 `.git`**，也不会 commit 到
+用户自己的仓库。每个快照存完整树，CRLF 与 BOM 按字节保真。`tl backup` 没有 `init`：
+第一次真正写盘时自动建库。
 
 ---
 
@@ -494,6 +524,8 @@ python <skill>/scripts/rptk.py sdk compile    <game-dir>
 10. 安卓侧：`store["renpy"]` 天生是 `renpy.exports` 门面，**禁止裸 `import renpy.xxx`**
     （会顶掉门面）。要用 `import renpy.loader as _loader` 或 `sys.modules[...]`。
     字体文件名必须是纯 ASCII。
+11. **不要自己写 `.bak` 复制逻辑**。所有写盘都走 `backup.keep()`，模式由
+    `--backup-mode` 决定；自己复制会绕过影子仓库，让 `tl backup restore` 看不到这次改动。
 
 ---
 

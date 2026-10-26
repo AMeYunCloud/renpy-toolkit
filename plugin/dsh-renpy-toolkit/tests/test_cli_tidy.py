@@ -502,5 +502,53 @@ class TestSelftest(unittest.TestCase):
             self.assertEqual(sorted(os.listdir(root)), before)
 
 
+class TestBackupModeInCli(unittest.TestCase):
+    """The backup switch has to fail as a message, not as a traceback.
+
+    ``--backup-mode git`` is resolved before any handler runs, so a machine
+    without git would otherwise crash with a stack trace instead of telling the
+    user what to install. It must also exit 3 (environment), not 1: exit 1 means
+    "found problems in your translation", and that would be a lie.
+    """
+
+    def setUp(self) -> None:
+        # ``main()`` pins the mode process-wide. Without this the mode leaks
+        # into every later test in the same run -- which showed up as an
+        # unrelated ``test_tl`` case failing to find its .bak file.
+        from renpy_toolkit import backup
+        self.previous_env = os.environ.pop("RTK_BACKUP", None)
+        backup.reset_mode()
+        self.addCleanup(self._restore)
+
+    def _restore(self) -> None:
+        from renpy_toolkit import backup
+        backup.reset_mode()
+        os.environ.pop("RTK_BACKUP", None)
+        if self.previous_env is not None:
+            os.environ["RTK_BACKUP"] = self.previous_env
+
+    def test_invalid_mode_is_a_usage_error(self) -> None:
+        code, _out, err = _run("--backup-mode", "nonsense", "--version")
+        self.assertEqual(code, cli.EXIT_USAGE)
+        self.assertIn("invalid choice", err)
+
+    def test_git_mode_without_git_exits_with_environment_error(self) -> None:
+        from renpy_toolkit import gitbackup
+        if gitbackup.available():
+            self.skipTest("git is installed here")
+        with temp_dir() as root:
+            code, out, err = _run("--backup-mode", "git", "tl", "stats", root)
+        self.assertEqual(code, cli.EXIT_ENVIRONMENT, msg=err)
+        self.assertIn("error:", err)
+        self.assertIn("--backup-mode bak", err)
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(out.strip(), "")
+
+    def test_auto_mode_never_fails_for_a_missing_git(self) -> None:
+        with temp_dir() as root:
+            code, _out, err = _run("--backup-mode", "auto", "tl", "stats", root)
+        self.assertEqual(code, cli.EXIT_OK, msg=err)
+
+
 if __name__ == "__main__":
     unittest.main()

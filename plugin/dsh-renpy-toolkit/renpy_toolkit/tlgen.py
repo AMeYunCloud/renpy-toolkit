@@ -1076,7 +1076,14 @@ STRINGS_DUMP_NAME = "rtk_strings.json"
 
 def _scratch_dir(tag: str, base: str) -> str:
     digest = hashlib.sha1(tag.encode("utf-8")).hexdigest()[:12]
-    root = os.path.join(base, "renpy-toolkit-gen", digest)
+    # ``base`` may already *be* a scratch root: the in-project fallback is
+    # ``<game>/.renpy-toolkit-gen``. Appending unconditionally nested it a
+    # second time (``.renpy-toolkit-gen/renpy-toolkit-gen``), which both looked
+    # like debris and defeated cleanup, since only the inner level was removed.
+    if scratch_is_ours(base):
+        root = os.path.join(base, digest)
+    else:
+        root = os.path.join(base, "renpy-toolkit-gen", digest)
     os.makedirs(root, exist_ok=True)
     return root
 
@@ -1108,32 +1115,45 @@ _WRITE_PROBE = (
 )
 
 
+def scratch_candidates(rt: "Runtime", outdir: str | None) -> list[str]:
+    """Ordered bases the scratch tree may be built under, best first.
+
+    Split out from :func:`_writable_scratch` so the ordering is testable without
+    launching an interpreter.
+
+    ``os.getcwd()`` is deliberately the last resort rather than an early one.
+    A bundled interpreter that cannot write ``%TEMP%`` reports the *current
+    directory* as its temp directory, so a scratch tree built on ``getcwd()``
+    lands inside whatever tree the caller happens to be standing in — for this
+    plugin that was the package's own install directory, which is how 18 MB of
+    a third party's dialogue ended up next to our source.
+    """
+    return [
+        os.environ.get("RTK_SCRATCH") or "",
+        os.path.dirname(os.path.abspath(outdir)) if outdir else "",
+        tempfile.gettempdir(),
+        os.path.join(os.path.expanduser("~"), ".renpy-toolkit"),
+        # The game's install root is the one directory the launcher is
+        # guaranteed to be able to write, since it ships with the game. It sits
+        # after the temp options because scratch left there is debris in
+        # something the user owns; the caller cleans it up (see
+        # ``scratch_is_ours``).
+        os.path.join(rt.root, ".renpy-toolkit-gen"),
+        # Absolutely last: only reachable when every directory above failed.
+        os.getcwd(),
+    ]
+
+
 def _writable_scratch(rt: "Runtime", outdir: str | None) -> str:
     """Pick a scratch base the *game's* interpreter can actually write to.
 
     The launcher's python is frequently more restricted than the caller's (it
     may be a bundled build with a different temp directory, or run under a
     sandbox), so ``tempfile.gettempdir()`` on our side proves nothing. Ask the
-    runtime itself, cheapest candidate first.
-
-    The game's own install root is on the list because it is the one directory
-    the launcher is guaranteed to be able to write: it ships with the game and
-    the user already owns it. ``%TEMP%`` and ``$HOME`` are tried first because
-    they are tidier, but a bundled interpreter running under a sandbox often
-    cannot reach either.
+    runtime itself, cheapest candidate first; see
+    :func:`scratch_candidates` for the order and why it matters.
     """
-    candidates = [
-        os.environ.get("RTK_SCRATCH") or "",
-        os.path.dirname(os.path.abspath(outdir)) if outdir else "",
-        tempfile.gettempdir(),
-        os.getcwd(),
-        os.path.join(os.path.expanduser("~"), ".renpy-toolkit"),
-        # Last resort: the game's install root. It is deliberately last because
-        # writing scratch into a game the user owns leaves debris there, and an
-        # earlier version nested ``renpy-toolkit-gen/renpy-toolkit-gen`` under
-        # it. The caller cleans this up afterwards (see ``scratch_is_ours``).
-        os.path.join(rt.root, ".renpy-toolkit-gen"),
-    ]
+    candidates = scratch_candidates(rt, outdir)
     seen: set[str] = set()
     for base in candidates:
         if not base:

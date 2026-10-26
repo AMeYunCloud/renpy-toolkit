@@ -30,6 +30,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
+from .backup import keep
 from .errors import InvalidRequestError
 from .tl import TLParseError, TlBlock, TlFile, _triple_open, parse_tl_file
 
@@ -550,10 +551,12 @@ def sort_tl_path(
 ) -> SortResult:
     """Sort one file on disk.
 
-    ``backup`` writes a sibling ``.rpy.bak`` before the first modification of
-    the run.  Sorting moves hundreds of lines around, and a汉化 file that was
-    hand-merged once is not reproducible from the sources, so an unbacked-up
-    rewrite is not recoverable.
+    ``backup`` preserves the previous content before the first modification of
+    the run, using whatever :mod:`renpy_toolkit.backup` is set to (a sibling
+    ``.rpy.bak``, a Git snapshot, or nothing). Sorting moves hundreds of lines
+    around, and a translation file that was hand-merged once is not
+    reproducible from the sources, so an unbacked-up rewrite is not
+    recoverable.
     """
     with open(path, "rb") as handle:
         raw = handle.read()
@@ -584,10 +587,7 @@ def sort_tl_path(
             result.changed = False
             return result
         if backup:
-            backup_path = path + ".bak"
-            if not os.path.exists(backup_path):
-                with open(backup_path, "wb") as handle:
-                    handle.write(raw)
+            keep(path, raw)
         with open(path, "wb") as handle:
             handle.write(data)
     return result

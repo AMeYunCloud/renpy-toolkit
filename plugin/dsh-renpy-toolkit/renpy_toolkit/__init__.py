@@ -24,6 +24,8 @@
     audit    工程静态体检（图片缺失 / 归档重叠 / 行尾混用）
     scaffold 最小可运行工程脚手架
     safeio   有界 zlib 解压（压缩炸弹防护）+ safe_join（条目不得越界）
+    backup   写盘前的备份策略（``.bak`` / Git 影子仓库 / 不备份）
+    gitbackup  驱逐到 ``--git-dir`` 的影子仓库：快照、列出、回退、裁剪
     cli      命令行入口（``python -m renpy_toolkit``）
 
 设计原则（都在具体模块的 docstring 里展开了，这里只列结论）::
@@ -50,6 +52,7 @@ __version__ = "1.0.0"
 
 __all__ = [
     "audit",
+    "backup",
     "cli",
     "contextmap",
     "decompile",
@@ -58,6 +61,7 @@ __all__ = [
     "fonts",
     "fresh",
     "fstringfix",
+    "gitbackup",
     "hardcoded",
     "protect",
     "rpa",

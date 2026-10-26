@@ -442,5 +442,115 @@ class TestCleanScratchTree(unittest.TestCase):
         self.assertFalse(tlgen.clean_scratch_tree(""))
 
 
+class TestScratchOrdering(unittest.TestCase):
+    """Where the scratch tree is allowed to land.
+
+    A bundled interpreter that cannot reach ``%TEMP%`` reports the *current
+    directory* as its temp directory, so ranking ``getcwd()`` early put a third
+    party's 58k-line dialogue dump inside this plugin's own install directory.
+    The ordering is the thing worth pinning, so it lives in a pure function.
+    """
+
+    def _candidates(self):
+        import os
+
+        runtime = tlgen.Runtime(python="python", launcher="renpy.py", root=r"C:\games\SomeGame")
+        previous = os.environ.pop("RTK_SCRATCH", None)
+        try:
+            return tlgen.scratch_candidates(runtime, outdir=None)
+        finally:
+            if previous is not None:
+                os.environ["RTK_SCRATCH"] = previous
+
+    def test_cwd_is_last(self):
+        import os
+
+        self.assertEqual(self._candidates()[-1], os.getcwd())
+
+    def test_cwd_comes_after_every_owned_directory(self):
+        import os
+
+        candidates = self._candidates()
+        position = candidates.index(os.getcwd())
+        self.assertEqual(position, len(candidates) - 1)
+        # The game's own root must be preferred over the caller's cwd.
+        game_root = os.path.join(r"C:\games\SomeGame", ".renpy-toolkit-gen")
+        self.assertGreater(position, candidates.index(game_root))
+
+    def test_outdir_parent_is_tried_before_cwd(self):
+        import os
+
+        runtime = tlgen.Runtime(python="python", launcher="renpy.py", root=r"C:\games\SomeGame")
+        previous = os.environ.pop("RTK_SCRATCH", None)
+        try:
+            candidates = tlgen.scratch_candidates(runtime, outdir=os.path.join("C:\\", "out", "tl"))
+        finally:
+            if previous is not None:
+                os.environ["RTK_SCRATCH"] = previous
+        out_parent = os.path.join("C:\\", "out")
+        self.assertIn(out_parent, candidates)
+        self.assertLess(candidates.index(out_parent), candidates.index(os.getcwd()))
+
+    def test_rtk_scratch_wins_when_set(self):
+        import os
+
+        previous = os.environ.get("RTK_SCRATCH")
+        os.environ["RTK_SCRATCH"] = r"D:\scratch"
+        try:
+            runtime = tlgen.Runtime(python="python", launcher="renpy.py", root=r"C:\games\SomeGame")
+            self.assertEqual(tlgen.scratch_candidates(runtime, None)[0], r"D:\scratch")
+        finally:
+            if previous is None:
+                os.environ.pop("RTK_SCRATCH", None)
+            else:
+                os.environ["RTK_SCRATCH"] = previous
+
+
+class TestScratchLayout(unittest.TestCase):
+    """The on-disk shape of the scratch tree, which cleanup depends on."""
+
+    def test_plain_base_gets_one_named_level(self):
+        import os
+
+        with temp_dir() as base:
+            root = tlgen._scratch_dir("tag", base)
+            self.assertEqual(
+                os.path.dirname(root),
+                os.path.join(base, "renpy-toolkit-gen"),
+            )
+            self.assertTrue(tlgen.scratch_is_ours(os.path.dirname(root)))
+
+    def test_scratch_root_base_is_not_nested_twice(self):
+        """``<game>/.renpy-toolkit-gen`` is already a scratch root.
+
+        Appending ``renpy-toolkit-gen`` to it produced
+        ``.renpy-toolkit-gen/renpy-toolkit-gen``, so cleanup removed only the
+        inner level and left the outer shell behind.
+        """
+        import os
+
+        with temp_dir() as game:
+            base = os.path.join(game, ".renpy-toolkit-gen")
+            root = tlgen._scratch_dir("tag", base)
+            self.assertEqual(os.path.dirname(root), base)
+            # Exactly one named level: the digest sits directly under the base,
+            # which sits directly under the game.
+            self.assertEqual(os.path.dirname(base), game)
+            self.assertTrue(tlgen.scratch_is_ours(base))
+
+    def test_cleanup_removes_the_whole_tree(self):
+        import os
+
+        with temp_dir() as game:
+            base = os.path.join(game, ".renpy-toolkit-gen")
+            root = tlgen._scratch_dir("tag", base)
+            with open(os.path.join(root, "x.rpy"), "w", encoding="utf-8") as handle:
+                handle.write("translate x y:\n")
+            self.assertTrue(tlgen.clean_scratch_tree(root))
+            self.assertFalse(os.path.isdir(base))
+            # The game itself must survive: only the scratch root is removed.
+            self.assertTrue(os.path.isdir(game))
+
+
 if __name__ == "__main__":
     unittest.main()

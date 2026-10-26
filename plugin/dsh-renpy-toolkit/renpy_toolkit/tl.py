@@ -88,6 +88,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterator, Literal, Sequence
 
+from .backup import keep
 from .errors import TLError, TLParseError, UnsafeWriteError
 
 __all__ = [
@@ -382,8 +383,10 @@ class TlFile:
         routinely parse a rendered string into a *fresh* TlFile and write that,
         and a dirty-flag check silently dropped every such rewrite.
 
-        A ``.bak`` copy of the previous content is created next to the target
-        when it exists and ``backup`` is true.
+        When ``backup`` is true the previous content is preserved before the
+        overwrite. *How* it is preserved is decided by
+        :mod:`renpy_toolkit.backup`: a ``.bak`` copy next to the target, or a
+        snapshot in a Git shadow repository, or nothing at all.
         """
         dest = target or self.path
         data = self.to_bytes()
@@ -405,8 +408,7 @@ class TlFile:
             if previous == data:
                 return dest
             if backup:
-                with open(dest + ".bak", "wb") as dst:
-                    dst.write(previous)
+                keep(dest, previous)
         with open(dest, "wb") as fh:
             fh.write(data)
         return dest

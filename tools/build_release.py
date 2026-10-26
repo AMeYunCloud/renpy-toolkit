@@ -41,7 +41,7 @@ without leaving one behind, run the suite in a throwaway copy::
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
     Copy-Item dist\\plugin $tmp -Recurse
     Push-Location $tmp
-    python -m unittest discover -s tests -t tests -q     # 436 tests
+    python -m unittest discover -s tests -t tests -q     # 501 tests
     Pop-Location
     Remove-Item $tmp -Recurse -Force
 

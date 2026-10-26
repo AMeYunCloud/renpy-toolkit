@@ -1,0 +1,19 @@
+# renpy-toolkit — Ren'Py 汉化与制作工具集。
+#
+# 这个补丁把本包注册成一个 DSH bundle。`name` 必须是包名本身，
+# 节点解析（Node module resolution）才能从 profile 的 node_modules 里找到它。
+#
+# 插件做的事：向 ctx.tools 注册三个工具（renpy_inspect / renpy_translate /
+# renpy_check），向 ctx.skills 注册随包附带的 renpy-toolkit skill。
+# 真正的运算由同包内的 Python 包（plugin/dsh-renpy-toolkit/renpy_toolkit）完成，
+# 只用标准库，不需要 pip 安装任何东西。
+#
+# 可选的 config（全部省略即用默认值）：
+#   python: "C:/path/to/python.exe"   # 指定解释器；不写则自动探测宿主自带的 runtime
+#
+# 注意：这里刻意没有 `requires` / `inject` 之类的字段 —— 依赖关系写在
+# lib/index.js 的 `inject = ['tools', 'skills']` 里，由 cordis 在运行时解析。
+- insert:
+    - id: renpy-toolkit
+      name: dsh-renpy-toolkit
+      config: {}

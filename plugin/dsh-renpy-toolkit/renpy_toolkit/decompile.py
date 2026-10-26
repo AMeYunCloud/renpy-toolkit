@@ -54,6 +54,7 @@ import zlib
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Iterator, Sequence
 
+from .backup import keep
 from .errors import ToolkitError
 from .rpyc import RpycError
 from . import safeio
@@ -1102,8 +1103,7 @@ def decompile_dir(
             continue
         os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
         if backup and os.path.exists(target):
-            with open(target, "rb") as src, open(target + ".bak", "wb") as dst:
-                dst.write(src.read())
+            keep(target)
         with open(target, "wb") as handle:
             handle.write(data)
     return result

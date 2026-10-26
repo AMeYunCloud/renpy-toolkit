@@ -21,11 +21,11 @@ renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
 │       ├── renpy_toolkit/  27 个模块
-│       ├── tests/          450 个 unittest 用例
+│       ├── tests/          501 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
-├── skill/renpy-toolkit/    同功能的 agent skill
+├── skills/renpy-toolkit/   同功能的 agent skill（DSH 插件形态下由插件自动注册）
 │   ├── SKILL.md            按任务选路表 + 硬规则
 │   └── scripts/rptk.py     启动器（不依赖 cwd 与安装位置）
 ├── docs/                   调研与实证笔记（引擎事实、格式规范、四轮安全审查）
@@ -48,7 +48,7 @@ renpy-toolkit/
 拷到别处单独验证，而不必连带整个仓库。
 
 用法见 [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md)（工具包）与
-[`skill/renpy-toolkit/SKILL.md`](skill/renpy-toolkit/SKILL.md)（skill）。
+[`skills/renpy-toolkit/SKILL.md`](skills/renpy-toolkit/SKILL.md)（skill）。
 
 ## 安装
 
@@ -58,7 +58,7 @@ renpy-toolkit/
 | --- | --- | --- |
 | **一键包**（便携 zip） | 只想用，不想碰 Python 工程 | 解压，双击 `自检.cmd` 确认可用，然后 `python renpy-toolkit.py --help` |
 | **pip 安装** | 想当命令行工具用 | `pip install .`，得到 `renpy-toolkit` 命令 |
-| **agent skill** | 让 AI 助手自己会做汉化 | 把 `skill/renpy-toolkit/` 放进 skills 目录 |
+| **agent skill** | 让 AI 助手自己会做汉化 | 把 `skills/renpy-toolkit/` 放进 skills 目录 |
 
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
@@ -93,7 +93,7 @@ renpy_toolkit/            包本体
 `.rpa` 写入/读回是否一致、翻译文件能否解析，最后打印一行 `self-check passed`。
 全程只写临时目录，不会碰你要汉化的游戏。
 
-agent skill 不需要安装，把 `skill/renpy-toolkit/` 放进 skills 目录即可；启动器会依次
+agent skill 不需要安装，把 `skills/renpy-toolkit/` 放进 skills 目录即可；启动器会依次
 尝试 `$RPTK_HOME`、`<repo>/plugin`、`<skill>/plugin` 找工具包。
 
 ### 下载现成的包（Releases）
@@ -161,6 +161,11 @@ wrote 53 file(s)            耗时 19.6s
 - **`port`**：游戏更新后把旧译文搬到新骨架，用「标识符 + 源文本」双重锁，
   源文改过的块不搬（实测 58,249 块里搬进 53,093 句）。
 - **`glossary`**：术语字典驱动的一致性校验与全局改名。
+- **`--backup-mode`**：所有写盘前先保留旧内容，`bak`（同目录 `.bak`）/ `git`
+  （`<tl>/.renpy-toolkit.git` 影子仓库，可回退到任意一次）/ `none`。影子仓库是独立
+  `--git-dir`，**不会在译文目录里建 `.git`，也不会 commit 到用户自己的仓库**；
+  CRLF 与 BOM 按字节保真（`core.autocrlf` 与 `git show` 两个坑都已处理）。
+  `tl backup list` / `show` / `restore` / `prune` / `size`。
 
 ### 4. 三类「翻不了」的文本
 
@@ -190,7 +195,7 @@ wrote 53 file(s)            耗时 19.6s
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 450 passed
+python -m unittest discover -s tests -t tests -q     # 501 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -217,7 +222,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 450 tests
+python -m unittest discover -s tests -t tests -q     # 501 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

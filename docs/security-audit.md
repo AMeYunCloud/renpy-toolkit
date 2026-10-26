@@ -163,7 +163,7 @@ README 里也写明"覆盖率是上界，不是承诺"。
 
 ```powershell
 cd plugin\dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q      # 450 tests
+python -m unittest discover -s tests -t tests -q      # 501 tests
 ```
 
 `test_safeio.py`（14 例）、`test_binary.py::TestRpa`（10 例，含
@@ -183,4 +183,119 @@ ok allowed <tmp>/sub/ok.txt
 8MiB passes: True
 ok limit enforced            # safeio.decompress_limited(limit=1000)
 ok pickle refused: UnpicklingError
+```
+
+---
+
+## 七、第五轮：Git 备份（`gitbackup.py` / `backup.py`）
+
+备份功能是**唯一会主动写盘、且读的是自己生成的数据**的模块，所以单独审一遍。
+它面对的是"影子仓库里的对象数据库"，而不是游戏——但沿用同一条判据：
+**路径字符串来自数据，不来自代码，就不能直接 `os.path.join`。**
+
+### 7.1 `restore()` 的路径穿越（High，已修）
+
+`restore()` 从 `ls-tree -r --name-only` 取文件名，原实现是
+
+```python
+target = os.path.join(self.root, *rel.split("/"))
+```
+
+`save()` 只记录 `root` 之内的路径（`_tracked` 用 `commonpath` 把关），所以正常
+流程写不出界。但 `ls-tree` 信任对象数据库里的内容，而 **git 允许一个*子树*被命名为
+`..`**——`mktree` 会拒绝名字里含斜杠的条目（`fatal: path a/.. contains slash`），
+却不拒绝叫 `..` 的子树。于是 `ls-tree -r` 报出 `../owned.rpy`，`os.path.join` 把
+它消解成 `root` 的上一级，写出备份目录。
+
+复现（字节喂 stdin，见下节踩坑）：
+
+```python
+inner = mktree("100644 blob <sha>\towned.rpy\n")
+outer = mktree("040000 tree %s\t..\n" % inner)   # rc=0
+ls-tree -r --name-only <commit>                  # b'../owned.rpy\n'
+```
+
+修法：改用 `safeio.safe_join(self.root, rel)`，与 `.rpa` 解包、`tl gen --write`
+共用同一个守卫；检查放在 dry-run 分支**之前**，否则 `--dry-run` 会打印一个它
+根本不会被允许写入的路径。
+
+三个用例固化在 `tests/test_gitbackup_escape.py`：拒绝写、dry-run 也拒绝、
+**正常仓库照常还原**（hardening 不能把正常路径弄坏）。
+
+### 7.2 踩过的坑：文本模式 stdin 会把用例喂假
+
+第一版复现脚本用 `subprocess.run(..., text=True, input="...\t..\n")`。Windows 上
+Python 把 `\n` 写成 `\r\n`，`mktree` 于是看到条目名 `..\r`，`ls-tree` 输出
+`"..\r/owned.rpy\r"`（带引号、带 CR），`os.path.join` 得到 `root\..\r\owned.rpy`
+——一个**不会**逃出 `root` 的路径。据此我一度判定"不是漏洞"，差点删掉修复。
+
+真正的判据是 `ls-tree -z` 的原始字节：`b'../owned.rpy\x00'`。结论：**验证路径
+类问题必须用字节模式，`text=True` 会静默改写被测输入。**
+
+### 7.3 已核实为安全的点
+
+| 位置 | 结论 |
+| --- | --- |
+| `_tracked()` | `commonpath([full, root])` 不等于 `root` 即拒绝；`save()` 的全部入口 |
+| `init()` | `git init --bare` 且**不设 `core.worktree`**，影子仓不会被当成正常检出，`git clean` 在译文目录里没有可清理的东西 |
+| `_IDENTITY` | `-c user.name/user.email` 显式传入，不读用户 gitconfig（备份不该因用户没配邮箱而失败），也不写回用户配置 |
+| `_CONFIG` | `core.autocrlf=false`、`core.safecrlf=false`、`core.eol=lf` 每次调用都带，配 `hash-object --no-filters`，CRLF/BOM 原样入库 |
+| `show()` | 先 `rev-parse <rev>:<rel>` 再 `cat-file blob`，**不用 `git show`**（后者过 smudge 过滤器） |
+| `_run()` / `_run_bytes()` | 列表 argv、`check=False`、不拼 shell 字符串；无 `shell=True` |
+| `prune()` | 只 `commit-tree` 重挂父链 + `gc --prune=now`，删除范围限于影子仓自己的对象库 |
+| `backup.keep()` | 目标不存在直接返回；`bak` 模式 1 MiB 分块复制（`.rpa` 可达数 GB，不读进内存） |
+
+### 7.4 有意不处理
+
+- **`bak` 模式覆盖同名 `.bak`**：那是"上一次的内容"，覆盖是语义本身；需要历史
+  就用 `--backup-mode git`。`sorttl` 原实现只保留*第一份* `.bak` 的行为已改掉，
+  因为它让第二次修改无法回退到第一次之前。
+- **影子仓没有签名/校验**：它是本地工具的工作目录，不是分发物；能篡改它的人
+  已经能直接改译文。
+
+### 7.5 复现
+
+```powershell
+cd plugin\dsh-renpy-toolkit
+python -m unittest discover -s tests -t tests -q -p "test_gitbackup*.py"   # 21 tests
+```
+
+## 八、第六轮：备份静默失效（Medium，已修）
+
+**症状**：`--backup-mode git` 在一个找不到 git 的机器上被**接受**，命令正常跑完
+（`tl verify` 退出码 0、无任何提示），而实际上一个快照都不会产生。
+
+**成因**：检查放在打快照的地方（`backup.keep()`），不在选模式的地方
+（`backup.set_mode()`）。凡是只读命令都不会走到 `keep()`，于是"选了一个用不了的
+模式"这件事从头到尾没人发现。同类问题也存在于环境变量路径：`RTK_BACKUP=git`
+在 `get_mode()` 里被原样返回，从未校验。
+
+**为什么它是安全问题而不是易用性问题**：用户的整个回退预案建立在一个从来不存在的
+备份上。等到改坏了译文想恢复时，才发现没有可恢复的东西——那时损失已经发生。这类
+"看起来保护了你"的失败比明确报错危险得多。
+
+**修法**（三处，均由测试锁定）：
+
+1. `set_mode()` 当场校验：要 `git` 但 `gitbackup.available()` 为假 → 抛
+   `MissingToolError`，消息直接给出装什么、或者改用 `--backup-mode bak`。
+2. `get_mode()` 不再原样返回 `RTK_BACKUP`，而是转交 `set_mode()`，环境变量不能
+   绕过校验。`auto` 仍然只解析一次（有 git 用 git，没有就退到 bak），不会因此失败。
+3. CLI 把 `set_mode()` 调用挪进 `main()` 的异常处理块内，否则它自己就是一条
+   traceback；并让 `MissingToolError` 映射到 `EXIT_ENVIRONMENT`（3）而不是
+   `EXIT_FINDINGS`（1）——退出码 1 的语义是"你的译文有问题"，在这里是假话。
+
+**同时修掉的测试污染**：`main()` 钉住的是进程级全局状态，新加的 CLI 测试跑完会
+把模式留在 `none`/`auto`，导致同一轮里后面的 `test_tl.test_write_creates_backup`
+找不到它期望的 `.bak`。三个新用例改为在 `setUp`/`addCleanup` 里
+`backup.reset_mode()` 并保存/恢复 `RTK_BACKUP`。连跑两遍全套确认无顺序依赖。
+
+**复现**：
+
+```powershell
+# 只把 git 目录从 PATH 里摘掉，保留 python
+$env:PATH = (($env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch 'git' }) -join ';')
+cd plugin\dsh-renpy-toolkit
+python -m renpy_toolkit --backup-mode git tl verify <某个 tl 目录>
+# 期望：error: 找不到可用的 git（2.15 以上）；请装 git 并放进 PATH，或改用 --backup-mode bak
+# 期望退出码：3
 ```

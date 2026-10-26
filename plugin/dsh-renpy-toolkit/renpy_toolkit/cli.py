@@ -42,9 +42,11 @@ import sys
 from typing import Iterator, Sequence
 
 from . import __version__
+from . import backup
 from .errors import (
     DependencyError,
     InvalidRequestError,
+    MissingToolError,
     SDKNotFoundError,
     ToolkitError,
 )
@@ -75,6 +77,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="检查这份拷贝在本机能否正常工作（写临时目录，不碰任何游戏）",
     )
     parser.add_argument("-q", "--quiet", action="store_true", help="只输出错误")
+    parser.add_argument(
+        "--backup-mode",
+        default=None,
+        choices=backup.MODES,
+        metavar="{bak,git,none,auto}",
+        help="写盘前怎么保留旧内容：bak 在同目录留 <名>.bak，git 用影子仓库"
+             "（可列出/回退到任意一次），none 不备份，auto 有 git 就用 git。"
+             "默认 bak；也可用环境变量 RTK_BACKUP 指定",
+    )
     sub = parser.add_subparsers(dest="group", metavar="<group>")
 
     # ---------------------------------------------------------------- rpa
@@ -140,7 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
     p.add_argument("--allow-empty", action="store_true",
                    help="连空译文也写（默认跳过，避免清空已有译文）")
-    p.add_argument("--no-backup", action="store_true", help="不生成 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
 
     # ``tl sort``: order blocks by their mirrored ``# game/x.rpy:NNN`` comment.
     # A one-pair-per-block layout is what Ren'Py itself generates, and the
@@ -156,7 +167,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--sections", action="store_true",
                    help="按 label 插入 '# --- <label> ---' 分段标记")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
-    p.add_argument("--no-backup", action="store_true", help="不生成 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
 
     p = tl_sub.add_parser(
         "split", help="把一条多 old/new 的 strings 块拆成标准形态"
@@ -165,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("game_dir", help="game/ 源目录，用于反查字面量出处")
     p.add_argument("--language", default=None, help="覆盖块里缺语言时用的语言")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
-    p.add_argument("--no-backup", action="store_true", help="不生成 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
 
     # ``tl init``: clone an existing tl/<lang> (or tl/None) skeleton to a new
     # language with every translation emptied.  This is the no-SDK path to a
@@ -289,6 +300,39 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--language", required=True)
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
 
+    p = tl_sub.add_parser("backup", help="Git 备份：列出历史 / 回退 / 裁剪")
+    bak_sub = p.add_subparsers(dest="backup_action", metavar="<action>")
+
+    p = bak_sub.add_parser("list", help="列出备份快照（新的在前）")
+    p.add_argument("tl_dir", help="TL 目录（其下 .renpy-toolkit.git 是备份库）")
+    p.add_argument("--limit", type=int, default=20, help="最多列多少条（默认 20）")
+    p.add_argument("--files", action="store_true", help="同时列出每个快照保存的文件")
+
+    p = bak_sub.add_parser("show", help="打印某个快照里的一个文件")
+    p.add_argument("tl_dir")
+    p.add_argument("rev", help="快照 id（前 8 位即可）")
+    p.add_argument("relpath", help="相对备份根的文件路径，例如 script.rpy")
+
+    p = bak_sub.add_parser("restore", help="把某个快照的文件写回原路径")
+    p.add_argument("tl_dir")
+    p.add_argument("rev")
+    p.add_argument("--file", action="append", metavar="REL",
+                   help="只回退某个文件，可重复（默认整份快照）")
+    p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
+
+    p = bak_sub.add_parser("save", help="立刻给当前所有 .rpy 拍一个快照")
+    p.add_argument("tl_dir")
+    p.add_argument("--message", default="", help="快照说明")
+    p.add_argument("--write", action="store_true", help="真正写入备份库")
+
+    p = bak_sub.add_parser("prune", help="只保留最近 N 个快照，丢掉更早的")
+    p.add_argument("tl_dir")
+    p.add_argument("--keep", type=int, default=20, help="保留多少个（默认 20）")
+    p.add_argument("--write", action="store_true", help="真正执行（默认只报告）")
+
+    p = bak_sub.add_parser("size", help="报告备份库占用多少字节")
+    p.add_argument("tl_dir")
+
     p = tl_sub.add_parser("glossary", help="术语字典：校验译名一致性 / 全局改名")
     gl_sub = p.add_subparsers(dest="glossary_action", metavar="<action>")
 
@@ -329,7 +373,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("new", help="新译名")
     p.add_argument("--file", action="append", metavar="NAME",
                    help="只改指定文件，可重复")
-    p.add_argument("--no-backup", action="store_true", help="不写 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
 
     p = tl_sub.add_parser(
@@ -339,7 +383,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("reference_dir", help="旧译本目录，例如 game/tl/Chinese")
     p.add_argument("--file", action="append", metavar="NAME",
                    help="只搬指定文件，可重复")
-    p.add_argument("--no-backup", action="store_true", help="不写 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
     p.add_argument("--show-skipped", action="store_true",
                    help="列出因源文改动而跳过的块，最多 40 条")
@@ -353,7 +397,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="一个或多个 polish_script_*.py")
     p.add_argument("--file", action="append", metavar="NAME",
                    help="只改指定 TL 文件，可重复")
-    p.add_argument("--no-backup", action="store_true", help="不写 .bak")
+    p.add_argument("--no-backup", action="store_true", help="不备份旧内容（等价于 --backup-mode none）")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
     p.add_argument("--show-problems", action="store_true",
                    help="列出全部未命中原因，最多 40 条")
@@ -438,7 +482,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("-o", "--dest", default=None, help="输出目录，默认与源同目录")
     p.add_argument("--pattern", default="*.rpyc")
     p.add_argument("--overwrite", action="store_true", help="覆盖已存在的 .rpy")
-    p.add_argument("--backup", action="store_true", help="覆盖前把旧 .rpy 存成 .bak")
+    p.add_argument("--backup", action="store_true", help="覆盖前先备份旧文件（方式由 --backup-mode 决定）")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
 
     p = dec_sub.add_parser("verify", help="反编译往返校验（标识符/字符串/对白）")
@@ -1132,6 +1176,124 @@ def cmd_tl_fix_fstrings(args: argparse.Namespace, out: _Out) -> int:
     return EXIT_FINDINGS if manual else EXIT_OK
 
 
+def cmd_tl_backup(args: argparse.Namespace, out: _Out) -> int:
+    """Git 备份的列出 / 查看 / 回退 / 裁剪。
+
+    这里刻意不提供 ``init``：备份库由 :func:`backup.keep` 在第一次真正写盘
+    时自动创建，单独初始化只会留下一个空仓库让人以为有备份。
+    """
+    from . import gitbackup
+
+    action = getattr(args, "backup_action", None)
+    if action is None:
+        raise InvalidRequestError("tl backup: choose list / show / restore / save / prune / size")
+
+    if not gitbackup.available():
+        raise InvalidRequestError(
+            "找不到可用的 git（需要 2.15+）；Git 备份不可用。"
+            "改用 --backup-mode bak 在目标旁边留 .bak"
+        )
+
+    root = os.path.abspath(args.tl_dir)
+    if not os.path.isdir(root):
+        raise InvalidRequestError(f"{args.tl_dir} 不是目录")
+    store = gitbackup.GitBackups(root)
+
+    if action == "list":
+        if not store.exists():
+            out.say(f"{root}: 还没有备份（第一次 --write 时会自动建库）")
+            return EXIT_OK
+        snapshots = store.list(limit=args.limit)
+        if not snapshots:
+            out.say(f"{root}: 备份库是空的")
+            return EXIT_OK
+        out.say(f"{root}  ({store.size()} bytes, {len(snapshots)} shown)")
+        for snapshot in snapshots:
+            out.say("  " + snapshot.summary())
+            if args.files:
+                for name in snapshot.files:
+                    out.say("      " + name)
+        return EXIT_OK
+
+    if action == "size":
+        if not store.exists():
+            out.say(f"{root}: 还没有备份")
+            return EXIT_OK
+        out.say(f"{store.git_dir}: {store.size()} bytes")
+        return EXIT_OK
+
+    if action == "show":
+        data = store.show(args.rev, args.relpath)
+        # Write the bytes straight to stdout: a TL file is UTF-8 and printing
+        # through str would re-encode BOM and line endings on Windows.
+        sys.stdout.buffer.write(data)
+        if not data.endswith(b"\n"):
+            sys.stdout.buffer.write(b"\n")
+        sys.stdout.buffer.flush()
+        return EXIT_OK
+
+    if action == "save":
+        # Preview from the file list, never from ``snapshot_all``: that one
+        # writes the commit, so a dry run followed by ``--write`` would find
+        # nothing left to do and claim the backup had not changed.
+        planned = store.plan_all()
+        if not planned:
+            out.say("no .rpy/.rpym files under this directory: nothing to save")
+            return EXIT_OK
+        if not args.write:
+            out.say(f"would save {len(planned)} file(s) as one snapshot")
+            out.say("dry run: pass --write to record it")
+            return EXIT_OK
+        snapshot = store.snapshot_all(message=args.message or "manual snapshot")
+        if snapshot is None:
+            out.say("nothing changed: no snapshot written")
+            return EXIT_OK
+        out.say(f"saved {len(snapshot.files)} file(s) as {snapshot.rev[:8]}")
+        return EXIT_OK
+
+    if action == "restore":
+        if getattr(args, "file", None):
+            planned = []
+            for rel in args.file:
+                normalised = rel.replace("\\", "/")
+                data = store.show(args.rev, normalised)  # raises when absent
+                planned.append((os.path.join(root, *normalised.split("/")), data))
+            if not args.write:
+                for target, _data in planned:
+                    out.say(f"would restore {target}")
+                out.say("dry run: pass --write to put them back")
+                return EXIT_OK
+            for target, data in planned:
+                with open(target, "wb") as handle:
+                    handle.write(data)
+                out.say(f"restored {target}")
+            return EXIT_OK
+        planned_paths = store.restore(args.rev, dry_run=True)
+        if not args.write:
+            for target in planned_paths:
+                out.say(f"would restore {target}")
+            out.say("dry run: pass --write to put them back")
+            return EXIT_OK
+        written = store.restore(args.rev)
+        out.say(f"restored {len(written)} file(s) from {args.rev[:8]}")
+        return EXIT_OK
+
+    if action == "prune":
+        history = store.list(limit=args.keep + 1)
+        if len(history) <= args.keep:
+            out.say(f"{len(history)} snapshot(s): nothing to prune (keep={args.keep})")
+            return EXIT_OK
+        if not args.write:
+            out.say(f"would drop {len(history) - args.keep} of {len(history)} snapshot(s)")
+            out.say("dry run: pass --write to prune")
+            return EXIT_OK
+        removed = store.prune(keep=args.keep)
+        out.say(f"pruned {removed} snapshot(s), {args.keep} kept")
+        return EXIT_OK
+
+    raise InvalidRequestError(f"tl backup: unknown action {action!r}")
+
+
 def cmd_tl_glossary(args: argparse.Namespace, out: _Out) -> int:
     from . import glossary
 
@@ -1659,11 +1821,22 @@ def cmd_selftest(args: argparse.Namespace, out: _Out) -> int:
          % (sys.version_info[0], sys.version_info[1], sys.version_info[2],
             platform.platform(terse=True)))
 
-    # Package imports and version metadata.
+    # Package imports and version metadata. The module count is read from the
+    # filesystem rather than written out by hand: a hand-maintained number goes
+    # stale the moment a module is added, and then the one command whose job is
+    # to say "this copy is intact" reports something false.
     try:
+        import pkgutil
+
         from . import __all__ as exported
         from . import rpa, rpyc, tl, verify  # noqa: F401
-        note("import", "27 个子模块可用，导出 %d 个名字" % len(exported))
+        package_dir = os.path.dirname(os.path.abspath(__file__))
+        modules = sorted(
+            info.name for info in pkgutil.iter_modules([package_dir])
+            if not info.name.startswith("_")
+        )
+        note("import", "%d 个子模块可用，导出 %d 个名字"
+             % (len(modules), len(exported)))
     except Exception as exc:                      # pragma: no cover
         note("import", "FAILED: %s" % exc)
         ok = False
@@ -1768,6 +1941,7 @@ _TL_ACTION_HANDLERS = {
     "sort": cmd_tl_sort,
     "split": cmd_tl_split,
     "hardcoded": cmd_tl_hardcoded,
+    "backup": cmd_tl_backup,
     "glossary": cmd_tl_glossary,
     "context": cmd_tl_context,
     "untranslatable": cmd_tl_untranslatable,
@@ -1781,6 +1955,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     out = _Out(getattr(args, "quiet", False))
+
+    # Pin the backup mode once, before any handler can write. ``auto`` is
+    # resolved here (git present -> git) so every write in one run behaves the
+    # same way instead of re-deciding per file. This happens inside the guarded
+    # block because asking for ``git`` without git is a user error that has to
+    # leave through the normal "error: ..." path, not a traceback.
+    requested = getattr(args, "backup_mode", None)
 
     if getattr(args, "selftest", False):
         return cmd_selftest(args, out)
@@ -1798,8 +1979,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if group == "tl":
         handler = _TL_ACTION_HANDLERS.get(args.action, cmd_tl)
     try:
+        if requested:
+            chosen = backup.set_mode(requested)
+            if chosen != requested:
+                out.say(f"backup mode: {requested} -> {chosen}")
         return handler(args, out)
     except DependencyError as exc:
+        out.warn(f"error: {exc}")
+        return EXIT_ENVIRONMENT
+    except MissingToolError as exc:
+        # An externally-required program is absent, not a problem found in the
+        # translation: exit 3, so a script can tell "your file has issues" from
+        # "this machine cannot do what you asked".
         out.warn(f"error: {exc}")
         return EXIT_ENVIRONMENT
     except (SDKNotFoundError,) as exc:

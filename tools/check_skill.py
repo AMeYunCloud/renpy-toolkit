@@ -14,8 +14,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))          # tools/
 ROOT = os.path.dirname(HERE)                               # repository root
-SKILL = os.path.join(ROOT, "skill", "renpy-toolkit", "SKILL.md")
-LAUNCHER = os.path.join(ROOT, "skill", "renpy-toolkit", "scripts", "rptk.py")
+SKILL = os.path.join(ROOT, "skills", "renpy-toolkit", "SKILL.md")
+LAUNCHER = os.path.join(ROOT, "skills", "renpy-toolkit", "scripts", "rptk.py")
 
 # Things SKILL.md promises, grouped by the command line that must accept them.
 REQUIRED = {

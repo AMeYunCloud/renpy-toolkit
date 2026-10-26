@@ -21,6 +21,7 @@ import zlib
 from dataclasses import dataclass
 from typing import BinaryIO, Iterator
 
+from .backup import keep
 from .errors import ToolkitError
 from . import safeio
 
@@ -470,8 +471,9 @@ class RenPyArchive:
     ) -> None:
         """Rebuild the archive with staged changes applied.
 
-        The original file is preserved as ``<name>.bak`` (unless it did not
-        exist yet).
+        The original file is preserved first (a ``<name>.bak`` copy, a Git
+        snapshot, or nothing, per :mod:`renpy_toolkit.backup`) unless it did not
+        exist yet.
 
         All source bytes are read *before* the target is opened for writing:
         on Windows you cannot have the same path open for reading and writing
@@ -489,13 +491,7 @@ class RenPyArchive:
         key = self.key if key is None else key
 
         if os.path.exists(filename):
-            backup = filename + ".bak"
-            with open(filename, "rb") as src, open(backup, "wb") as dst:
-                while True:
-                    chunk = src.read(1 << 20)
-                    if not chunk:
-                        break
-                    dst.write(chunk)
+            keep(filename)
 
         index: dict[str, list[tuple[int, int, bytes]]] = {}
         header_len = 34 if version == 3 else 25

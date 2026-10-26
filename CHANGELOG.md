@@ -95,11 +95,40 @@ whose `game/` directory holds 50 `.rpyc` files and no `.rpy` sources at all.
   write/read round-trip, parsing a translation file, the command table).
   Writes only into a temporary directory. Exists because the portable zip
   needs an answer to "did I unzip this correctly" that is not a stack trace.
+  The module and sub-command counts it prints are read from the package and
+  the argument parser rather than written out by hand: a hard-coded number
+  went stale the first time a module was added, and then the one command
+  whose job is to say "this copy is intact" reported something false.
+
+**Backups**
+
+- Every write goes through `backup.keep()`, and `--backup-mode`
+  (`bak` / `git` / `none` / `auto`, or `RTK_BACKUP`) decides what happens to
+  the old bytes. The default is `bak`, deliberately not `auto`: a default that
+  depends on whether git happens to be installed is a default that behaves
+  differently on two machines running the same command.
+- `git` mode writes into a **shadow repository** at `<tl>/.renpy-toolkit.git`
+  rather than the project's own repo. A translation directory is often already
+  inside a git checkout, and committing there would rewrite someone else's
+  history. The shadow repo is a bare `--git-dir`, so nothing but that dot
+  directory appears next to the translations — no `.git`, no working tree for
+  `git clean` to wander into — and commits are assembled with `hash-object -w`
+  + `read-tree` + `commit-tree` without touching an index the user can see.
+- `tl backup list` / `show` / `restore` / `prune` / `size`. Snapshots store
+  complete trees, so any revision restores whole rather than replaying diffs.
+- Three byte-fidelity traps, all covered by round-trip tests: Git for Windows
+  ships `core.autocrlf=true` system-wide, which rewrites CRLF to LF on the way
+  into a blob (defeated with `--no-filters` plus `-c core.autocrlf=false`);
+  `git show` applies smudge filters (`cat-file blob` is used instead); and
+  reading through `text=True` collapses line endings on the way back out.
+- `.rpa` archives can be several gigabytes, so `bak` mode copies in 1 MiB
+  chunks instead of loading the file; `git` mode hashes the whole file, which
+  is the price of a restorable snapshot and the caller's choice.
 
 **Distribution**
 
 - Three shapes from one source tree: `pip install .` (console command),
-  `skill/` (agent skill), and `dist/portable/*.zip` (unzip and run, no pip and
+  `skills/` (agent skill), and `dist/portable/*.zip` (unzip and run, no pip and
   no environment variables). `tools/build_portable.py` produces the last one
   with platform launchers for Windows (`.cmd`) and POSIX (`.sh`), plus
   `自检.cmd` / `selfcheck.sh` that call `--selftest`.
@@ -120,6 +149,25 @@ whose `game/` directory holds 50 `.rpyc` files and no `.rpy` sources at all.
   manifest digests, CRLF launchers, and that the skill launcher reaches the
   toolkit through `RPTK_HOME`. Each of those checks exists because the
   corresponding mistake happened at least once during development.
+
+**DSH plugin**
+
+- The repository is also a DeepSeek Harness plugin: `lib/index.js` registers
+  three tools (`renpy_inspect`, `renpy_translate`, `renpy_check`) that shell
+  out to the Python package, plus a skill provider that serves
+  `skills/renpy-toolkit/SKILL.md`. The Python side is not reimplemented in
+  JavaScript — one implementation, two front doors.
+- `cordis.patch.yml` inserts the plugin under its own package name, which is
+  what Node module resolution needs to find it from the profile's
+  `node_modules`. Inter-plugin ordering lives in the `inject` array in
+  `lib/index.js`, not in the yml.
+- The skill provider re-reads `SKILL.md` on every `list()` and carries
+  `rank: 600`: without the rank a project-local skill of the same name
+  shadows the bundled one silently, and a cached read means editing the
+  document does nothing until the host restarts.
+- The JS half has zero runtime dependencies; it imports only the host's
+  `@deepseek-ai/*` peers. `package.json` `files` lists `lib`, the Python
+  package, `skills` and `cordis.patch.yml` — nothing else is published.
 
 ### Security
 

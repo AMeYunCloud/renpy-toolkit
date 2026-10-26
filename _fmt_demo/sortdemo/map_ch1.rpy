@@ -6,7 +6,6 @@
 
 # game/map_ch1.rpy:641
 translate chinese chapter_1_c572df9f:
-
     # mc "It is closed."
     mc "It is closed."
 
