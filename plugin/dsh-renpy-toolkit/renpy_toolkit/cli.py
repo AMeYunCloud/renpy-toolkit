@@ -595,9 +595,11 @@ def cmd_rpa(args: argparse.Namespace, out: _Out) -> int:
             if args.filter and args.filter not in name:
                 continue
             # Names come from the archive index; refuse anything that would
-            # land outside --outdir instead of trusting the index.
+            # land outside --outdir instead of trusting the index.  The whole
+            # entry name is one relative path -- splitting it on "/" would pass
+            # the components as extra positional arguments.
             dest = safeio.safe_join(
-                args.outdir, *name.split("/"), what=f"{args.archive}: entry"
+                args.outdir, name, what=f"{args.archive}: entry"
             )
             if args.no_overwrite and os.path.exists(dest):
                 continue
