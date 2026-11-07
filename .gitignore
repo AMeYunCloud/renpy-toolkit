@@ -106,3 +106,6 @@ _dist/release-notes-*.md
 # 解包与清单的临时产物。
 /_dec/
 /_rpalist.txt
+
+# 安全审查记录只留本地，不随仓库发布。
+/docs/security-audit.md

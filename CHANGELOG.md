@@ -178,8 +178,7 @@ whose `game/` directory holds 50 `.rpyc` files and no `.rpy` sources at all.
 
 ### Security
 
-Four audit rounds are documented in `docs/security-audit.md`. Fixed before
-release:
+Four audit rounds were run before release. Fixed:
 
 - **Critical** — `tl gen --outdir` used to `rmtree` the directory it was
   pointed at, deleting hand-written translations. It now only ever creates

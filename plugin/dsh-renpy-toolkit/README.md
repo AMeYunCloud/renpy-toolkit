@@ -735,7 +735,6 @@ Remove-Item $tmp -Recurse -Force
 
 ### 相关文档
 
-- [`docs/security-audit.md`](../../docs/security-audit.md) — 两轮安全审查（Critical 2 / High 5 / Medium 5 / Low 1 + 已核实安全项）
 - [`docs/custom-text-tags.md`](../../docs/custom-text-tags.md) — 自定义文本标签的官方语义，以及标签表对齐引擎的真 bug
 - [`docs/text-tags-and-interpolation.md`](../../docs/text-tags-and-interpolation.md) — 文本标签/插值/空译文的引擎实证与 verify 规则的误报基准
 - [`docs/rpyc-decompile.md`](../../docs/rpyc-decompile.md) — `.rpyc` 二进制格式与反编译实现

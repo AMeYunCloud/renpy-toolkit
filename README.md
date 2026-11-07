@@ -187,7 +187,6 @@ wrote 53 file(s)            耗时 19.6s
 | [`docs/rpa-format-spec.md`](docs/rpa-format-spec.md) | RPA 归档格式（rpatool 源码核实） |
 | [`docs/text-tags-and-interpolation.md`](docs/text-tags-and-interpolation.md) | 文本标签/插值/空译文的引擎实证 |
 | [`docs/custom-text-tags.md`](docs/custom-text-tags.md) | 自定义文本标签的官方语义 |
-| [`docs/security-audit.md`](docs/security-audit.md) | 安全审查（四轮：Critical 2 / High 5 / Medium 5 / Low 1） |
 | [`docs/renpy-translation-ecosystem.md`](docs/renpy-translation-ecosystem.md) | 汉化生态与工具链调研 |
 | [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门要点 |
 
