@@ -120,7 +120,7 @@ archive.write('RPA-3.0 %016x %08x\n' % (offset, key))     # offset = 索引区�
 `FILE` 参数可写成 `archive内路径=真实路径`（例：`test.rpa script.rpyc=/home/foo/test.rpyc`）
 ⚠️ rpatool 只支持**写 RPAv2/RPAv3**；RPAv1(.rpi) 读取都不支持。
 
-## 8. ⚠️ 已知限制与坑（对我们插件的约束）
+## 8. ⚠️ 已知限制与坑（对实现者的约束）
 
 1. **rpatool 原版是 Python 2 代码**（用 `unicode()`、`str.encode`），上面 gist 版是 py3 移植；
    移植版仍有 py2 残留，照抄会崩 —— 需重写。
@@ -134,7 +134,7 @@ archive.write('RPA-3.0 %016x %08x\n' % (offset, key))     # offset = 索引区�
 6. RPAv3 的 XOR key 会**逐归档不同**（Ren'Py 默认 0xDEADBEEF，但作者可自定义），
    解析必须从头部读 key，不能硬编码。
 
-## 9. 对我们插件的实现要求
+## 9. 实现约定
 
 - 支持 **读** RPAv1(尽力)/2/3，**写** RPAv2/3
 - 支持 prefix 三元组与二元组两种索引形态

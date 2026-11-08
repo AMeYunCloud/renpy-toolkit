@@ -108,7 +108,7 @@ RPA-3.0 %016x %08x\n                             # 34 字节
 
 注意默认 key 是 `0xDEADBEEF`，但**必须从头部读**，不能假设。
 
-本项目实现见 [`../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py)，
+工具包实现见 [`../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py)，
 格式细节见 [`rpa-format-spec.md`](rpa-format-spec.md)。
 
 ---
@@ -168,7 +168,7 @@ RENPY_LANGUAGE 环境变量
 - 要依赖就依赖**退出码**和**产物文件**（`tl/<lang>/*.rpy` 是否被生成/修改）。
 - 想加自己的命令：在 `init python` 里 `register_command`，比外部脚本更稳。
 
-本项目的 `sdk.py` 因此把 CLI 输出当「给人看的日志」处理，只解析
+`sdk.py` 因此把 CLI 输出当「给人看的日志」处理，只解析
 `--count` 这种有明确数值语义的输出。
 
 ---

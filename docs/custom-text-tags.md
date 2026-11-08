@@ -1,7 +1,7 @@
-# 官方文档第二轮：自定义文本标签
+# 自定义文本标签（官方语义）
 
-读的是 8.5.4 的 `custom_text_tags.html`，目的不是了解"怎么定义标签"，而是回答
-一个插件里悬着的问题：**`tl verify` 怎么区分「译者打错标签」和「游戏自己的标签」**。
+本文记录 Ren'Py 8.5.4 `custom_text_tags.html` 的语义，以及它如何决定 `tl verify` 的行为：
+**怎么区分「译者打错标签」和「游戏自己注册的标签」**。
 
 ## 一、文档给出的事实
 
@@ -50,13 +50,13 @@ text_tags = dict(
 `False` 的那些，写 `{/image}` 会在渲染时抛
 `{/%s} isn't valid, since the %s text tag doesn't take a close tag`。
 
-拿我们原来的表逐项对账，发现三类错：
+拿工具包早先的表逐项对账，发现三类错：
 
 | 类型 | 具体 | 后果 |
 | --- | --- | --- |
-| 引擎有、我们没收录 | `axis`、`instance`、`k`、`outlinecolor`、`plain` | 译文里合法的 `{outlinecolor=#000}` 被判成"未知标签" |
-| 我们当自闭合、引擎说可闭合 | `cps`、`art`、`rb`、`ruby`、`alpha`、`kern`、`vertical`、`rtl`、`clear` | 平衡检查把 `opens - closes` 算错，报假的"标签未闭合" |
-| 我们当可闭合、引擎说自闭合 | 无 | — |
+| 引擎有、表里没收录 | `axis`、`instance`、`k`、`outlinecolor`、`plain` | 译文里合法的 `{outlinecolor=#000}` 被判成"未知标签" |
+| 早先当自闭合、引擎说可闭合 | `cps`、`art`、`rb`、`ruby`、`alpha`、`kern`、`vertical`、`rtl`、`clear` | 平衡检查把 `opens - closes` 算错，报假的"标签未闭合" |
+| 早先当可闭合、引擎说自闭合 | 无 | — |
 
 `outlinecolor` 这一条最要命：一份真实成品译料里它出现 **2,910 次**，全是合法的
 `{outlinecolor=#000000}...{/outlinecolor}`。旧表把它算进 `SELF_CLOSING_TAGS`，
@@ -102,7 +102,7 @@ ported+tags    exit=1  53 file(s), 58249 block(s); coverage 60921/60927 (100.0%)
 `test_engine_self_closing_tags_are_not_closeable` 是直接照着引擎表写的回归，
 表再被改错就会立刻失败。
 
-### 第三轮：`{=style}` 曾被整类漏检
+### `{=style}` 这一类曾整类漏检
 
 `text.html` 里还有一句容易被跳过的话：
 
@@ -134,7 +134,7 @@ ported+tags    exit=1  53 file(s), 58249 block(s); coverage 60921/60927 (100.0%)
 ## 四、没做但记下来的
 
 `custom_text_tags.html` 里提到 `Text(..., tokenized=True)` 可以直接吃
-`(kind, value)` 列表。这条路对翻译工具没用 —— 我们要产出的是 `.rpy` 源文件，
+`(kind, value)` 列表。这条路对翻译工具没用 —— 工具要产出的是 `.rpy` 源文件，
 不是运行时对象。
 
 `cds.html`（自定义语句）没有细看：它影响的是"游戏作者能不能加新语法"，而翻译

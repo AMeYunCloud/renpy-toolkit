@@ -1,7 +1,7 @@
 # Ren'Py 翻译机制与 CLI — 权威要点（官方文档核实）
 
 来源：https://www.renpy.org/doc/html/translation.html 与 https://www.renpy.org/doc/html/cli.html
-（Ren'Py 8.5.4 文档，2026 年核实）
+（Ren'Py 8.5.4 文档）
 
 ## 1. 四类可翻译对象
 

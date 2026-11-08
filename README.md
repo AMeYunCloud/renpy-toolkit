@@ -28,7 +28,7 @@ renpy-toolkit/
 ├── skills/renpy-toolkit/   同功能的 agent skill（DSH 插件形态下由插件自动注册）
 │   ├── SKILL.md            按任务选路表 + 硬规则
 │   └── scripts/rptk.py     启动器（不依赖 cwd 与安装位置）
-├── docs/                   调研与实证笔记（引擎事实、格式规范、四轮安全审查）
+├── docs/                   参考笔记（引擎事实、格式规范）
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
 │   ├── build_portable.py   构建 dist/portable 一键包（含 .zip）
@@ -180,15 +180,16 @@ wrote 53 file(s)            耗时 19.6s
 | 文档 | 内容 |
 | --- | --- |
 | [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md) | 模块说明、全部子命令、设计约束 |
-| [`docs/renpy-engine-notes.md`](docs/renpy-engine-notes.md) | 引擎架构 |
+| [`docs/README.md`](docs/README.md) | 参考文档索引 |
+| [`docs/renpy-engine-notes.md`](docs/renpy-engine-notes.md) | 引擎架构与核心机制 |
 | [`docs/official-cli-and-translation.md`](docs/official-cli-and-translation.md) | 翻译机制与官方 CLI（文档核实） |
 | [`docs/renpy-source-verification.md`](docs/renpy-source-verification.md) | 从引擎源码逐行核实的接口 |
-| [`docs/rpyc-decompile.md`](docs/rpyc-decompile.md) | `.rpyc` 二进制格式与反编译实现 |
-| [`docs/rpa-format-spec.md`](docs/rpa-format-spec.md) | RPA 归档格式（rpatool 源码核实） |
-| [`docs/text-tags-and-interpolation.md`](docs/text-tags-and-interpolation.md) | 文本标签/插值/空译文的引擎实证 |
-| [`docs/custom-text-tags.md`](docs/custom-text-tags.md) | 自定义文本标签的官方语义 |
-| [`docs/renpy-translation-ecosystem.md`](docs/renpy-translation-ecosystem.md) | 汉化生态与工具链调研 |
-| [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门要点 |
+| [`docs/rpyc-decompile.md`](docs/rpyc-decompile.md) | `.rpyc` 格式与反编译实现 |
+| [`docs/rpa-format-spec.md`](docs/rpa-format-spec.md) | RPA 归档格式 |
+| [`docs/text-tags-and-interpolation.md`](docs/text-tags-and-interpolation.md) | 文本标签与插值（引擎侧实证） |
+| [`docs/custom-text-tags.md`](docs/custom-text-tags.md) | 自定义文本标签（官方语义） |
+| [`docs/renpy-translation-ecosystem.md`](docs/renpy-translation-ecosystem.md) | 汉化生态参考 |
+| [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门参考 |
 
 ## 开发
 

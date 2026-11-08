@@ -1,10 +1,10 @@
-# Ren'Py 学习路径笔记
+# Ren'Py 制作侧入门参考
 
-面向「从未写过 Ren'Py 脚本、但已有通用编程经验」的读者。
-素材来源：`ZYKsslm/RenPy-Tutorial`（社区中文教程）、`renpy/renpy` 官方文档
-（[www.renpy.org/doc/html](https://www.renpy.org/doc/html/)）。
-凡是官方文档里能直接查到的，本文只给结论 + 官方条目名；社区教程里有价值的是
-**踩坑顺序**，这部分按「先学什么、后学什么」组织。
+面向「从未写过 Ren'Py 脚本、但已有通用编程经验」的读者，用于配合工具包的制作侧功能
+（`project` 检查、`scaffold` 建工程）。参考资料来自 Ren'Py 官方文档
+（[www.renpy.org/doc/html](https://www.renpy.org/doc/html/)）与社区中文教程 `ZYKsslm/RenPy-Tutorial`。
+官方文档里能直接查到的，本文只给结论 + 条目名；社区教程里有价值的是**踩坑顺序**，
+这部分按「先学什么、后学什么」组织。
 
 ---
 
@@ -14,7 +14,7 @@
 你的脚本语言（say / menu / label / show）在导入期被翻译成 Python 语句树，
 `label` 变成函数，`say` 变成 `renpy.say()` 调用。
 
-因此有三条贯穿全部学习的结论：
+因此有三条贯穿全流程的结论：
 
 1. **Python 能力直接可用**。`init python:`、`python:`、`$`、内联表达式
    `[expr]` 全是真 Python。

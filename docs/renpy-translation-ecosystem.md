@@ -1,18 +1,22 @@
-# Ren'Py 游戏汉化生态与工具链调研
+# Ren'Py 汉化生态参考
 
-> 调研对象：Ren'Py 游戏**第三方汉化生态**（工具链、工程惯例、反编译做法、中文本地化难点），以及它们与 [`docs/official-cli-and-translation.md`](./official-cli-and-translation.md) 记录的**官方翻译机制**之间的关系。
->
-> 官方机制（四类可翻译对象、`tl/<lang>/` 目录、`translate` / `strings` 块、翻译标识符生成、`config.defer_tl_scripts`、Unsactioned 汉化路径、CLI 全部子命令）已在该文中逐条核实，本文**不重复**，只在有交叉处引用。
->
+本文是随工具包发布的背景资料：说明第三方汉化生态的工具链、工程惯例、反编译做法与
+中文本地化难点，以及它们与 [`docs/official-cli-and-translation.md`](./official-cli-and-translation.md)
+记录的官方翻译机制之间的关系。
+
+官方机制（四类可翻译对象、`tl/<lang>/` 目录、`translate` / `strings` 块、翻译标识符生成、
+`config.defer_tl_scripts`、Unsanctioned 汉化路径、CLI 全部子命令）已在该文中逐条核实，
+本文**不重复**，只在有交叉处引用。
+
 > 可信度标记约定（每条结论后括注）：
 > - **【官方】** = renpy.org 官方文档 / 官方 changelog 原文
 > - **【官方文档·推测】** = 由官方文档事实直接推出的结论，文档未明说
 > - **【仓库 README】** = 工具/教程仓库自述（仓库主页或文档站）
 > - **【教程】** = 中文社区的教程、文档站、博客（一手实践，但未经独立验证）
 > - **【论坛】** = Lemma Soft 论坛等讨论帖（个人经验，不可当作已验证事实）
-> - **【未能核实】** = 本轮抓取未能取得可靠来源，或来源本身不足以支撑结论
+> - **【未能核实】** = 未找到可靠来源，或来源本身不足以支撑结论
 >
-> 时间基准：Ren'Py 8.5.4 文档（2026 年 10 月抓取），社区文档站 `docs.dclef.com` 页面显示 "Last Updated: 10/16/2026"。
+> 版本基准：Ren'Py 8.5.4 文档；社区文档站 `docs.dclef.com`。
 
 ---
 
@@ -58,7 +62,7 @@
 
 ## 3. 工具清单
 
-> 原则：只列本轮**实际抓到**仓库主页/搜索条目/文档页的工具；Star 数仅在搜索结果的仓库卡片上读到时才写，且明确标注为"抓取时点读数"；否则写"未能核实"。
+> 原则：只列**能核实到**仓库主页/搜索条目/文档页的工具；Star 数只在搜索结果卡片上读到时才写，并标注为"读取时点读数"；否则写"未能核实"。
 
 ### 3.1 解包（`.rpa` → 文件）
 
@@ -78,7 +82,7 @@
 | `unrpyc`（Un.rpyc） | `CensoredUsername/unrpyc` | 真实存在；搜索卡片显示 1265 stars（抓取时点）、MIT；有 `v2.0.1`（2024-04-01）、`v2.0.4` 等 release；描述明确 "It will **not** extract files from `.rpa` archives. For that, use rpatool or …" | Ren'Py 脚本反编译器的事实标准。注意：它是**单文件**工具，按 Ren'Py 的惯例放在 `game/` 下随游戏启动一次即可产出 `.rpy` | 【仓库 README+教程】 |
 | `UnRen`（含反编译环节） | `F95Sam/UnRen` | 同 3.1 | 调用/内置反编译器，一条龙；中文教程推荐"Ren'Py ≤7 用 `unren0.91.bat`，≥8 用 `UnRen-1.0.10.bat`" | 【教程+论坛】 |
 | `rpycdec` | `cnfatal/rpycdec`（fork：`Portalboy07/rpycdec`） | 搜索命中，描述 "Tools to decompile renpy .rpyc .rpymc files"；活跃度/维护度**未能核实** | 备选反编译器；特性与兼容版本**未能核实** | 【搜索条目】 |
-| `garc`（"Gar 的 RenPy 反编译器"） | **未能核实** | 多轮检索（`garc renpy decompiler`、`garc Ren'Py decompiler Gar github`）返回的全是 Global Alliance for Rabies Control、印度 Global Automotive Research Centre、美军无人艇 GARC 等无关实体；GitHub 平台搜索接口本轮抓取失败 | 无法确认存在 | **【未能核实】**——建议后续用 GitHub 站内搜索复核，或向提出该名字的一方索取链接 |
+| `garc`（"Gar 的 RenPy 反编译器"） | **未能核实** | 多轮检索（`garc renpy decompiler`、`garc Ren'Py decompiler Gar github`）返回的全是 Global Alliance for Rabies Control、印度 Global Automotive Research Centre、美军无人艇 GARC 等无关实体；GitHub 平台搜索接口未能取得结果 | 无法确认存在 | **【未能核实】**——建议后续用 GitHub 站内搜索复核，或向提出该名字的一方索取链接 |
 
 ### 3.3 辅助/流水线工具
 
@@ -90,7 +94,7 @@
 | VSCode + Comment Translate | 第三方 VSCode 插件 | 教程级 | 悬停翻译字符串，逐句人肉翻译；可切 Google/Baidu/Bing，百度通用翻译需 APP ID + 密钥；**必须卸载 VSCode Python 扩展**否则悬停不显示；速度过快会超时 | 【教程】 |
 | 本工作区插件 | `plugin/dsh-renpy-toolkit/renpy_toolkit/` | 本仓库自研 | 面向 `tl/<lang>` 的读写与校验（参见 `official-cli-and-translation.md` 描述的官方格式约束） | 【本工作区】 |
 
-> 说明：`renpy-tools` 这个仓库名在本轮检索中没有得到可靠对应物（官方 SDK 中的 `rpatool`/`unrpa` 与社区 `shizmob/rpatool` 是两个来源）。使用者口中的"renpy-tools 自带 rpatool"多半是把 **SDK 的 `launcher/game/tools/`** 与社区 rpatool 混称——**未能核实**。
+> 说明：`renpy-tools` 这个仓库名没有找到可靠对应物（官方 SDK 中的 `rpatool`/`unrpa` 与社区 `shizmob/rpatool` 是两个来源）。使用者口中的"renpy-tools 自带 rpatool"多半是把 **SDK 的 `launcher/game/tools/`** 与社区 rpatool 混称——**未能核实**。
 
 ---
 
@@ -106,7 +110,7 @@
 ### 4.2 `.rpyc`：编译产物 + ID 仓库
 
 - `.rpyc` 同时承担两件事：**编译后的脚本**，以及**每行对话/场景的唯一 ID 存储**。官方 "The Old-game Directory" 一节写得很清楚：`.rpyc` "also store important details, like unique IDs for each line of dialogue or scene, that save files rely on"【官方 build 文档】。
-- 推论（对本项目重要）：**汉化时如果重建了 `.rpyc`，翻译标识符（如 `start_636ae3f5`）可能变化**，这会影响旧 `.rpa` 里的译文、旧存档、以及外部维护的对照表。这正是官方提供 `old-game/` 目录的原因——把上一版 `.rpyc` 放在 `old-game/` 下，Ren'Py 会在重编译时复用未变部分的 ID【官方 build 文档】。
+- 推论（对汉化重要）：**汉化时如果重建了 `.rpyc`，翻译标识符（如 `start_636ae3f5`）可能变化**，这会影响旧 `.rpa` 里的译文、旧存档、以及外部维护的对照表。这正是官方提供 `old-game/` 目录的原因——把上一版 `.rpyc` 放在 `old-game/` 下，Ren'Py 会在重编译时复用未变部分的 ID【官方 build 文档】。
 - 反编译的本质是：从 `.rpyc` 的 AST 反序列化结果**重建近似源码**。它不保证字节级还原：注释、原始空白、字符串前缀（`u`/`r`）、部分执行顺序信息会丢；作者若用了非常规语句或自定义 CDS，重建可能失败或走样【仓库 README+论坛】。
 - 版本断代：Ren'Py 8 = Python 3，Ren'Py 7.5 = Python 2.7 的续存分支；`.rpyc` 的序列化依赖 Python 的 marshal/pickle 语义，跨 major 不兼容。社区教程据此给出"unren 版本与 SDK 版本配对"的做法【官方 changelog+教程】。
 
@@ -199,9 +203,9 @@ translate chinese python:
 3. **界面汉化**：把 `SourceHanSansLite.ttf` 放入 `game/`，全文替换 `gui.rpy`/`screens.rpy` 中的字体后缀；或在 `tl/chinese/style.rpy` 里写 `translate chinese python:` 统一切字体（与 5.1 完全一致）；并在 `screens.rpy` 的语言 `vbox` 里加 `textbutton _("Chinese") text_font "SourceHanSansLite.ttf" action Language("chinese")`。
 4. **语言名**：全站统一用 `chinese`。**没有**看到 `schinese` / `zh-Hans` 之类的用法；`schinese` 只出现在它转述的 `renpy-translator` 文档示例里。→ "`schinese` 是主流惯例"这一说法**未能核实**；就本仓库而言，**`chinese`** 是它推荐并演示的名字。
 
-### 6.3 它与本项目的定位差异（重要）
+### 6.3 它与本工具包的定位差异（重要）
 
-| 维度 | Dclef/renpy-tl | 本项目（`plugin/dsh-renpy-toolkit/renpy_toolkit`） |
+| 维度 | Dclef/renpy-tl | 本工具包（`plugin/dsh-renpy-toolkit/renpy_toolkit`） |
 | --- | --- | --- |
 | 产出物 | 面向人类的教程文档 | 面向程序的工具库（`.rpa` / `.rpyc` / `tl` 读写与校验） |
 | 是否有代码 | 仅文档 + 若干下载工具的分发链接 | 有，`rpa.py` 等 |
@@ -209,7 +213,7 @@ translate chinese python:
 | 许可证 | GPL-3.0 | 见仓库根 `README.md` |
 | 引用价值 | 提供**中文本地化的实战失败清单**（字体、默认语言、导出不全、unren 版本配对、安卓 X- 前缀） | — |
 
-**结论**：`Dclef/renpy-tl` 对我们的价值是**经验库**而非依赖项。它没有可复用的代码接口，但它验证了几件事：(a) 中文社区的事实标准语言名是 `chinese`；(b) 字体问题必须单独处理且"全局替换字体"是可接受的工程折衷；(c) 反编译链的版本配对是汉化流程的固定章节；(d) 官方生成器覆盖不全这件事，社区已经当作前提接受。这四点应直接写进我们插件的默认假设与默认参数。
+**结论**：`Dclef/renpy-tl` 的价值是**经验库**而非依赖项。它没有可复用的代码接口，但它验证了几件事：(a) 中文社区的事实标准语言名是 `chinese`；(b) 字体问题必须单独处理且"全局替换字体"是可接受的工程折衷；(c) 反编译链的版本配对是汉化流程的固定章节；(d) 官方生成器覆盖不全这件事，社区已经当作前提接受。这四点已经落成工具包的默认假设与默认参数（见 §9）。
 
 ### 6.4 它的"翻译工具"章节 = 转述 `anonymousException/renpy-translator`
 
@@ -231,9 +235,9 @@ translate schinese naming_0f7b6e71:
 ```
 
   且要求：`#`/`old` 之后的原文与 `new`/译文行的**非注释文本完全一致**，否则判定为未翻译。→ 这正是官方 `translate` 块的形状，说明社区工具是**贴着官方格式做正则**的。
-- **不要勾"生成空字符串"**：否则工具会认为"全部已翻译"而跳过。→ 与我们"生成骨架"的默认行为冲突，需要做成可配置项。
+- **不要勾"生成空字符串"**：否则工具会认为"全部已翻译"而跳过。→ 与本工具包骨架生成的默认行为相反，`tl gen` 因此用原文占位而非空串。
 - **占位符保护是硬伤**：工具把 `[s_name]`、`{}`、`<>` 替换成序号 `[0]`、`[1]` 再还原，翻译引擎一旦破坏结构（如 `É [0] . E 1] .`）就还原失败，该行**直接不翻**。这是机翻流水线固有的、必须人工兜底的损耗。
-- **抽取过滤**：工具**不会抽取**"有效长度 < 8"的句子（空格与特殊符号计 0）。→ `"I know [special symbol]"` 只有 5 个有效字符，会被丢弃。这类"短句被静默吞掉"是最难发现的问题，我们的校验器应当显式报告"未被任何 tl 块覆盖的原文串"。
+- **抽取过滤**：工具**不会抽取**"有效长度 < 8"的句子（空格与特殊符号计 0）。→ `"I know [special symbol]"` 只有 5 个有效字符，会被丢弃。这类"短句被静默吞掉"是最难发现的问题，`tl verify` 因此显式报告"未被任何 tl 块覆盖的原文串"。
 - **奇怪的 `old`**：`old "old:1709016761.706834_0.8853..."` 是工具写入的时间戳随机标记（`时间戳_随机数`），用于标记抽取批次，不是引擎机制。
 
 ### 6.5 抓取情况说明
@@ -286,7 +290,7 @@ translate schinese naming_0f7b6e71:
 | https://docs.dclef.com/guide/new_version.html | Ren'Py 8 新特性对汉化者的影响：Py2→Py3、unren0.95 对 8.0+ 失效需 1.10 以上、不再有 `.pyo`、可加密/套壳 | 【教程】 |
 | https://docs.dclef.com/faq/qa.html | 实战坑：工程目录放二级目录、`python -m unrpa archive.rpa`、口口字通杀、白屏、`define config.language`、`ImportError: No module named unittest`、无 `screen.rpy` 时搜 `preferences()`、**导出文本不全须回改源码**、安卓两套资源 + `X-` 前缀重命名 | 【教程】 |
 | https://docs.dclef.com/faq/renpy-translator-qa.html | `renpy-translator` 行为细节：生效格式、禁用"生成空串"、占位符序号化并还原、抽取过滤"有效长度<8"、`old:时间戳_随机数` 标记 | 【教程】（转述上游 README） |
-| https://github.com/anonymousException/renpy-translator | 上游翻译自动化工具（本轮 raw README 未能读取，见 6.5） | 【仓库 README·部分】 |
+| https://github.com/anonymousException/renpy-translator | 上游翻译自动化工具（上游 README 未能读取，见 6.5） | 【仓库 README·部分】 |
 | https://github.com/Dclef/renpy-translator | 2★、AGPL-3.0、"renpy翻译工具 renpy tl to google trans" | 【仓库 README】 |
 | https://www.renpy.cn/thread-16-1-1.html | 《最新Ren'Py引擎游戏解包教程》：7.8+ 的 rpyc 反编译问题、unrpyc-master 停更说法 | 【论坛/博客·低】 |
 | https://blog.sunmkt.uk/post/renpy-unpack/ | unrpa 提取 + unrpyc 反编译步骤 | 【博客·低】 |
@@ -299,8 +303,8 @@ translate schinese naming_0f7b6e71:
 | https://lemmasoft.renai.us/forums/viewtopic.php?t=23283 | "Ren'Py Unsanctioned Translations"（2013），unsanctioned 概念的社区讨论 | 【论坛】 |
 | https://lemmasoft.renai.us/forums/viewtopic.php?t=60634 | "Decompile Error .RPYC Files"（2020），UnRen.bat v0.9-dev 反编译失败求助 | 【论坛】 |
 | https://lemmasoft.renai.us/forums/viewtopic.php?t=67001 | "Recovering my script from .rpyc file"（2023） | 【论坛】 |
-| https://lemmasoft.renai.us/forums/viewtopic.php?t=67620 | 用 `tl/proofread` 语言做"校对工作流"的变通法（"renpy launcher → generate translations → 命名 proofread → 发给校对 → 把校对后的文件贴回"） | 【论坛】（页面本体本轮超时，仅据搜索摘要） |
-| https://lemmasoft.renai.us/forums/viewtopic.php?t=61095 | xavimat 回答"对话可导出不可导入，用 None 翻译发给校对"（2021） | 【论坛】（页面本体本轮超时，仅据搜索摘要） |
+| https://lemmasoft.renai.us/forums/viewtopic.php?t=67620 | 用 `tl/proofread` 语言做"校对工作流"的变通法（"renpy launcher → generate translations → 命名 proofread → 发给校对 → 把校对后的文件贴回"） | 【论坛】（页面本体读取超时，仅据搜索摘要） |
+| https://lemmasoft.renai.us/forums/viewtopic.php?t=61095 | xavimat 回答"对话可导出不可导入，用 None 翻译发给校对"（2021） | 【论坛】（页面本体读取超时，仅据搜索摘要） |
 | https://lemmasoft.renai.us/forums/viewtopic.php?t=43333 | "添加语言选项"教程，明确反对机翻 | 【论坛】 |
 
 ### 7.5 明确未能核实的事项
@@ -315,11 +319,20 @@ translate schinese naming_0f7b6e71:
 
 ---
 
-## 附：对本项目（`renpy_toolkit`）的直接启示
+## 9. 本工具包对应的实现
 
-1. **默认走 sanctioned 路径**：能生成就生成（`translate <lang>` / Generate Translations），能 JSON 中转就走 `extract_strings`/`merge_strings`；反编译只作为"作者不给源码"时的兜底分支，并在文档里显式提示法律/授权风险。
-2. **语言名默认 `chinese`**，同时校验用户输入是否符合"可作 Python 标识符"；`schinese` 作为兼容别名接受但不作为默认（依据 7.5 第 3 条）。
-3. **字体处理要做成独立可选项**：生成 `tl/<lang>/style.rpy` 的 `translate <lang> python:` 块比全文替换作者文件更可控，也天然兼容 `config.defer_tl_scripts` 的"tl 文件只许含 translate 类块"约束。
-4. **必须有"覆盖度报告"**：官方生成器 + 社区工具都会静默漏句（生成器扫不到、`renpy-translator` 过滤短句）。校验器应列出"源码中存在但没有任何 tl 块引用的原文串"。
-5. **orphan 检查接 `lint --error-code`**，并对"标识符漂移"给出可操作建议（`old-game/` 复用 ID）。
-6. **`.rpa` 层无需外部依赖**：本仓库 `rpa.py` 已覆盖 v2/v3，只需要补 `-k KEY` 语义与"非默认 key"的诊断提示。
+上面几节列出的生态缺口，在本工具包里各有对应的命令。这张表是本文与工具本身的接口：
+
+| 生态缺口 | 工具包里的入口 |
+|---|---|
+| 只有 `.rpyc`、拿不到源码，官方生成器产不出骨架 | `tl gen` —— 跑游戏本身，从内存读 `translator.file_translates` 与 SL2 屏幕树，实测 58,249 块、19.6 s；引擎 `lint` 数字逐项吻合 |
+| 反编译风险（标识符漂移、文本遗漏） | `decompile`（白名单 pickle 虚拟机，不执行游戏字节码）+ `verify_decompile` 三级校验 |
+| 生成器静默漏句（变量拼接、`show text`、裸字面量） | `tl untranslatable <dump>` 列出「源码里有、但拿不到稳定翻译身份」的串；`tl verify` 报覆盖度 |
+| 界面文本没有 `_()` 包裹 | 硬编码文本走 TL：`tl hardcoded scan/apply`，靠运行时 `translate_string` 命中，不改源码 |
+| 同一字符串在不同界面要译成不同结果 | `tl context` 生成跨屏消歧补丁（`{#ctx}` + 运行时钩子） |
+| 术语不统一 | `tl glossary check`（内置通用 UI 术语表 + 工程术语 `--scope project`） |
+| orphan / 标识符漂移 | `tl verify --expect-dialogue N` 对账引擎 `lint`；`port` 按标识符搬运旧译文 |
+| `.rpa` 解包/打包 | `rpa list/extract/pack`，RPA-2.0/3.0 读写，非默认 key 可 `--key` 指定 |
+| 字体与缺字 | `font map`（生成 `translate <lang> python:` 替换块）+ `font check`（cmap 覆盖检测） |
+| 改文件怕改坏 | `--backup-mode bak|git`：每次写盘前自动留副本或快照，`tl backup list/restore/prune` |
+

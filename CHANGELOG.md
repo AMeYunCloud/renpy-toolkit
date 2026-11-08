@@ -9,6 +9,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 First public release. Everything below was verified against a shipping game
 whose `game/` directory holds 50 `.rpyc` files and no `.rpy` sources at all.
 
+The `docs/` set (nine documents plus an index) is written for readers of the
+toolkit: every rule the code enforces is traced back to an engine fact or a
+format specification, so the documents can be used to re-verify the behaviour
+after a Ren'Py upgrade.
+
 ### Added
 
 **Translation scaffolding**

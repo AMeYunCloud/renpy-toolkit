@@ -3,8 +3,8 @@
 本文件记录 `renpy_toolkit` 的 `protect.py` / `verify.py` 规则**依据的引擎事实**。
 每条都附源码位置或实测命令，便于以后 Ren'Py 升级时复核。
 
-被测工程：`<game-dir>`
-（发行版自带完整 `renpy/` 源码树，路径是 `<game>\renpy\...`，**不在 `game/` 里**）。
+源码路径写作 `<game>\renpy\...` —— 发行版自带完整 `renpy/` 源码树，
+它不在 `game/` 里，与 `game/*.rpyc` 是两套东西。
 
 ## 1. 自闭合标签表（`{image}` 不接受 `{/image}`）
 
@@ -244,10 +244,10 @@ return None
 ```
 
 → 磁盘上的松散文件**优先**于归档，但只在 `config.force_archives` 为假时。
-把它设成 `True`，发行版里的 `game/archive.rpa` 就会盖住我们写进
+把它设成 `True`，发行版里的 `game/archive.rpa` 就会盖住写进
 `game/tl/<lang>/` 的补丁——**游戏照常启动、界面全英文，没有任何报错**。
 
-这不是假设。被测工程的 `game/archive.rpa` **2,301,570,939 字节 / 21,857 条目**，
+这不是假设。一份发行版的 `game/archive.rpa` **2,301,570,939 字节 / 21,857 条目**，
 实测条目里 `tl/` 前缀 **0 条**、`.rpyc` **0 条**（全是 audio/images/fonts 资源），
 所以松散 TL 确实生效。但只要作者加一行 `config.force_archives = True`，
 整份汉化就悄悄失效。
