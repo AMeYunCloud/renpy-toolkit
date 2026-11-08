@@ -1825,17 +1825,32 @@ def cmd_selftest(args: argparse.Namespace, out: _Out) -> int:
     # stale the moment a module is added, and then the one command whose job is
     # to say "this copy is intact" reports something false.
     try:
-        import pkgutil
-
         from . import __all__ as exported
         from . import rpa, rpyc, tl, verify  # noqa: F401
-        package_dir = os.path.dirname(os.path.abspath(__file__))
-        modules = sorted(
-            info.name for info in pkgutil.iter_modules([package_dir])
-            if not info.name.startswith("_")
-        )
-        note("import", "%d 个子模块可用，导出 %d 个名字"
-             % (len(modules), len(exported)))
+
+        if getattr(sys, "frozen", False):
+            # 冻结后（PyInstaller / Nuitka）包被打进归档，没有目录可列，列出来
+            # 只会得到 0。改数已加载的模块：自检要回答的是"这份拷贝完整吗"，
+            # 那就该看导入系统实际有什么，而不是看文件系统上有什么。
+            modules = sorted(
+                name.rsplit(".", 1)[-1]
+                for name in sys.modules
+                if name.startswith(__package__ + ".")
+                and not name.rsplit(".", 1)[-1].startswith("_")
+            )
+        else:
+            import pkgutil
+
+            package_dir = os.path.dirname(os.path.abspath(__file__))
+            modules = sorted(
+                info.name for info in pkgutil.iter_modules([package_dir])
+                if not info.name.startswith("_")
+            )
+        # 冻结包里"可用"只能观察为"已导入"——懒加载的模块还没进来，数出来会
+        # 小于源码模式。措辞跟着变，免得把两条不同口径的数字当成同一个指标。
+        wording = "已加载" if getattr(sys, "frozen", False) else "可用"
+        note("import", "%d 个子模块%s，导出 %d 个名字"
+             % (len(modules), wording, len(exported)))
     except Exception as exc:                      # pragma: no cover
         note("import", "FAILED: %s" % exc)
         ok = False

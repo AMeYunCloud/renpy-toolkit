@@ -7,7 +7,7 @@
 ```bash
 cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 505 个用例
+python -m unittest discover -s tests -t tests -q     # 528 个用例
 ```
 
 ## 目录
@@ -73,6 +73,7 @@ renpy_toolkit/                      29 个模块
 ├── safeio.py       有界解压、safe_join（归档条目/语言名不得越界）
 │
 ├── cli.py          argparse 命令行入口
+├── gui.py          tkinter 图形界面（exe 形态；只用标准库，不进 __all__）
 └── __main__.py     python -m renpy_toolkit
 ```
 
@@ -633,12 +634,36 @@ python -m renpy_toolkit font map <game> --emit chinese
 `translate <lang> python:` 块里即可生效，不用改游戏源码。`font map` 只做审计和
 出模板——把哪几行粘贴进 TL 由人决定，它不替你写进游戏。
 
+## 图形界面（exe 形态）
+
+`renpy_toolkit/gui.py` 是 tkinter 窗口，给不想碰命令行的人用。它不重写任何逻辑：
+每个按钮都翻译成一次 `cli.main(argv)` 调用，所以界面与命令行的行为（`--write` 语义、
+备份模式、退出码）永远一致，不存在两套实现。窗口会先扫「exe 所在目录 + 一级子目录」
+里所有 Ren'Py 游戏并让你选一个，之后所有操作都作用于它。
+
+打 exe：
+
+```bash
+python tools/build_exe.py --clean      # onedir + onefile，并跑 --selftest 自检
+python tools/build_exe.py --verify     # 只自检已有产物
+```
+
+必须在**装了 PyInstaller 的解释器**里跑，因为 PyInstaller 只会打包它自己
+site-packages 里的东西；`fontTools` 与 `openpyxl` 也得装在那一个解释器里，
+否则 exe 里「字体覆盖率 / Excel」两个按钮会静默不可用。本机既定位置
+`E:\Programs\renpy-toolkit-build\venv`，命令见 `tools/build_exe.py` 头部注释。
+
+`gui.py` 只用标准库，所以**不要**把它加进 `__all__`：没有 tkinter 的环境里星号
+导入会连带失败。命令行入口也只在需要时才 import 它。
+
 ## 开发
 
 ### 依赖
 
 必需：Python 3.10+，仅标准库。
 可选：`fontTools`（`fonts.py` / `fontmap.py` 真实 cmap 解析）、`openpyxl`（XLSX 读写）。
+两者都是 MIT，`pip install renpy-toolkit[all]` 一次装齐；**exe 形态会把它们一起打包**，
+所以 exe 里这两个功能开箱可用，而一键包 / skill 保持纯标准库。
 
 ### 测试
 
@@ -649,7 +674,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **505 个用例全绿**，约 39 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **528 个用例全绿**，约 60 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -675,6 +700,7 @@ python tools/build_release.py            # 生成 dist/plugin（VERSION + MANIFE
 python tools/build_release.py --verify   # 重新哈希，逐文件比对
 python tools/build_release.py --sync     # 用发布版覆盖 plugin/dsh-renpy-toolkit/
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
+python tools/build_exe.py --clean        # 生成 dist/exe（onedir + onefile）并自检
 python tools/check_portable.py           # 在干净解压副本上验收一键包
 python tools/make_release.py --dry-run    # 预览发版（版本校验 + 重建 + tag + Release）
 python tools/make_release.py              # 真的发版（推 tag + 上传两个 zip）
@@ -728,7 +754,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 505 tests
+python -m unittest discover -s tests -t tests -q     # 528 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

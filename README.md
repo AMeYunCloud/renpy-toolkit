@@ -20,8 +20,8 @@
 renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
-│       ├── renpy_toolkit/  27 个模块
-│       ├── tests/          505 个 unittest 用例
+│       ├── renpy_toolkit/  28 个模块（含 gui.py：exe 用的图形界面）
+│       ├── tests/          528 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
@@ -32,13 +32,16 @@ renpy-toolkit/
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
 │   ├── build_portable.py   构建 dist/portable 一键包（含 .zip）
+│   ├── build_exe.py        用 PyInstaller 打 Windows exe（onedir + onefile）并自检
+│   ├── exe_entry.py        exe 入口：无参数开窗口，带参数走命令行
 │   ├── check_portable.py   在干净解压副本上验收一键包
 │   ├── check_skill.py      校验 SKILL.md 承诺的 flag 与子命令真实存在
 │   ├── check_readme.py     校验 README 的目录锚点与相对链接
 │   └── check_filter.py     对一份真实译料评估候选过滤规则的误伤
 └── dist/                   构建产物（不入库）
     ├── plugin/             供 skill 调用的包目录
-    └── portable/           一键包目录 + renpy-toolkit-<version>.zip
+    ├── portable/           一键包目录 + renpy-toolkit-<version>.zip
+    └── exe/                Windows exe（onedir/ 与 onefile/）
 ```
 
 `plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 由 `tools/build_*.py` 生成、被 `.gitignore`
@@ -52,10 +55,11 @@ renpy-toolkit/
 
 ## 安装
 
-三种形态，按需要选一种：
+四种形态，按需要选一种：
 
 | 形态 | 适合谁 | 怎么开始 |
 | --- | --- | --- |
+| **Windows exe**（图形界面） | 只想点按钮，不碰命令行 | 解压 `renpy-toolkit-exe-<version>.zip`，把文件夹放到游戏目录旁边，双击 `renpy-toolkit.exe` |
 | **一键包**（便携 zip） | 只想用，不想碰 Python 工程 | 解压，双击 `自检.cmd` 确认可用，然后 `python renpy-toolkit.py --help` |
 | **pip 安装** | 想当命令行工具用 | `pip install .`，得到 `renpy-toolkit` 命令 |
 | **agent skill** | 让 AI 助手自己会做汉化 | 把 `skills/renpy-toolkit/` 放进 skills 目录 |
@@ -67,8 +71,53 @@ pip install .              # 得到 renpy-toolkit 命令
 pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl（XLSX 读写）
 ```
 
-不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。三种形态背后的代码是同一份，
-依赖都仅标准库；上面两个是可选能力，缺失时会给出可读的 `DependencyError` 而不是 import 失败。
+不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。四种形态背后的代码是同一份，
+默认依赖仅标准库；`fontTools` 与 `openpyxl` 是可选能力，缺失时会给出可读的 `DependencyError`
+而不是 import 失败。唯一例外是 **exe**：它把这两人可选依赖一起打包，所以那两个功能在 exe 里开箱可用。
+
+### Windows exe（图形界面）
+
+`python tools/build_exe.py` 产出两个形态（需要构建虚拟环境，见脚本头部说明）：
+
+```
+dist/exe/onedir/renpy-toolkit/        文件夹版，整个目录一起分发
+dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件
+```
+
+双击打开窗口，窗口自己扫「exe 所在目录 + 它的一级子目录」里所有 Ren'Py 游戏
+（判定标准：有 `game/` 子目录，且有启动器 `.py`/`.exe`、或 `lib/py3-*/python.exe`、
+或 `game/` 里有 `.rpy`/`.rpyc`），列出来让你选一个。**0 个、1 个、多个都会弹出
+这个窗口**——一次只处理选中的那一个，不碰其它游戏。
+
+选完之后所有按钮都作用于这个游戏，不再问路径：
+
+| 分组 | 按钮 |
+| --- | --- |
+| 准备 | 环境体检、生成汉化骨架、搬运旧译文 |
+| 翻译 | 导出 Excel 表格、回填 Excel 译文 |
+| 检查 | 校验译文、术语一致性、硬编码文本 |
+| 工具 | 字体覆盖率、字体替换模板、查看备份、立即备份 |
+| 资源 | 查看归档内容、反编译 `.rpyc` |
+
+会写文件的按钮**先跑一遍 dry-run**，把「将写入什么、写到哪个目录」摆出来，
+点确认才真的落盘。语言目录名与备份方式（`bak` / `git`）在窗口里选，选择会记在
+exe 同目录的 `config.json`，下次启动预选上次的游戏。
+
+exe 自带 `fontTools` 与 `openpyxl`（字体覆盖率与 Excel 两功能开箱可用），
+因此比一键包大约 15 MB。它也能当命令行用：`renpy-toolkit.exe --cli --help`；
+窗口模式没有控制台，命令行输出改写在同一目录的 `renpy-toolkit-cli.log`。
+
+`tl gen` 仍然需要游戏自带的解释器（`lib/py3-*/python.exe`），这是设计使然：
+只有游戏自己的运行时里才有它那份 `renpy/` 引擎代码，本项目不去复刻引擎。
+
+**单文件版的两个已知限制**（文件夹版没有这些问题，所以优先用文件夹版）：
+
+- 每次启动都要把约 17 MB 内容解包到临时目录，第一次打开比文件夹版慢几秒；
+- 如果系统策略不允许程序在自己的临时目录下创建子目录（企业管控、部分安全软件、
+  受限用户令牌），单文件版会打不开、或双击后一闪就没了。这时改用文件夹版即可，
+  或者重建时指定解包目录：
+  `python tools/build_exe.py --onefile-only --runtime-tmpdir D:\rt`
+  （`--verify` 会把这种情况标成「环境受限」而不是失败）。
 
 ### 一键包（便携发布形态）
 
@@ -195,7 +244,7 @@ wrote 53 file(s)            耗时 19.6s
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 505 passed
+python -m unittest discover -s tests -t tests -q     # 528 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -209,6 +258,7 @@ python tools/build_release.py            # 生成 dist/plugin（含 VERSION 与 
 python tools/build_release.py --verify   # 重新哈希逐个比对
 python tools/build_release.py --sync     # 再用发布版覆盖 plugin/dsh-renpy-toolkit/，两边不许漂移
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
+python tools/build_exe.py --clean        # 生成 dist/exe（onedir + onefile），并跑 --selftest 自检
 python tools/check_portable.py           # 在干净解压副本上验收一键包（自检/子命令/退出码/清单/行尾）
 python tools/check_skill.py              # 校验 SKILL.md 里写的每个 flag 与子命令真实存在
 python tools/check_readme.py             # 校验 README 的目录锚点与相对链接
@@ -222,7 +272,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 505 tests
+python -m unittest discover -s tests -t tests -q     # 528 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```
