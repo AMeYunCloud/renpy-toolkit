@@ -2,7 +2,9 @@
 
 一套面向 Ren'Py 游戏的**制作辅助**与**汉化**工具包，纯标准库实现，不依赖 Ren'Py 本体。
 
-最初的任务是学习三个上游仓库，然后沉淀成可复用的工具：
+English: [`README.en.md`](README.en.md)
+
+本工具包从四个上游项目沉淀而来：
 
 | 上游 | 学到什么 |
 | --- | --- |
@@ -253,7 +255,7 @@ wrote 53 file(s)            耗时 19.6s
 | [`docs/custom-text-tags.md`](docs/custom-text-tags.md) | 自定义文本标签（官方语义） |
 | [`docs/renpy-translation-ecosystem.md`](docs/renpy-translation-ecosystem.md) | 汉化生态参考 |
 | [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门参考 |
-| [`docs/release-notes-1.0.0.zh-CN.md`](docs/release-notes-1.0.0.zh-CN.md) | 1.0.0 中文说明（发布页正文） |
+| [`docs/release-notes-1.0.0.md`](docs/release-notes-1.0.0.md) | 1.0.0 发布说明（中英双语） |
 
 ## 开发
 
