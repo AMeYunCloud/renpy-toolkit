@@ -14,3 +14,4 @@
 | [`custom-text-tags.md`](./custom-text-tags.md) | 自定义文本标签的官方语义，以及标签表如何对齐引擎 |
 | [`renpy-translation-ecosystem.md`](./renpy-translation-ecosystem.md) | 第三方汉化生态参考：工具链、工程惯例、中文本地化难点，以及本工具包的对应实现 |
 | [`renpy-tutorial-notes.md`](./renpy-tutorial-notes.md) | 制作侧入门参考：学习 Ren'Py 脚本的推荐顺序与常见误区 |
+| [`release-notes-1.0.0.zh-CN.md`](./release-notes-1.0.0.zh-CN.md) | 1.0.0 版本的中文说明（GitHub 发布页正文） |
