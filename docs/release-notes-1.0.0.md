@@ -36,6 +36,8 @@ A toolkit for Ren'Py authoring and localization. Its core capability is generati
 | **Agent skill** | 给 AI 助手用 | 把 `skills/renpy-toolkit/` 放进 skill 目录 |
 | **Windows exe** | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
 
+exe 的下载在单独的 Release：**exe-v1.0.0**。（本页只挂插件与 skill 两份产物。）
+
 ### 主要能力
 
 **生成骨架** `tl gen` 跑游戏本体，一次抓齐对白与界面文本。骨架用**原文占位**而不是
@@ -112,6 +114,9 @@ and neither of them contains or invokes the exe.
 | **Plugin / pip** | Python available, prefer the CLI | `pip install renpy-toolkit` (`[all]` adds Excel and font support); or unzip the portable zip and run `renpy-toolkit.cmd` |
 | **Agent skill** | AI assistants | Drop `skills/renpy-toolkit/` into the skills directory |
 | **Windows exe** | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
+
+The exe is published as a separate release: **exe-v1.0.0**. This page carries only
+the plugin and skill artifacts.
 
 ### Capabilities
 
