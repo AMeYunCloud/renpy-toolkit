@@ -73,7 +73,7 @@ renpy_toolkit/                      29 个模块
 ├── safeio.py       有界解压、safe_join（归档条目/语言名不得越界）
 │
 ├── cli.py          argparse 命令行入口
-├── gui.py          tkinter 图形界面（exe 形态；只用标准库，不进 __all__）
+├── gui.py          图形界面（exe 形态：本地服务 + 系统浏览器；只用标准库，不进 __all__）
 └── __main__.py     python -m renpy_toolkit
 ```
 
@@ -636,15 +636,23 @@ python -m renpy_toolkit font map <game> --emit chinese
 
 ## 图形界面（exe 形态）
 
-`renpy_toolkit/gui.py` 是 tkinter 窗口，给不想碰命令行的人用。它不重写任何逻辑：
-每个按钮都翻译成一次 `cli.main(argv)` 调用，所以界面与命令行的行为（`--write` 语义、
-备份模式、退出码）永远一致，不存在两套实现。窗口会先扫「exe 所在目录 + 一级子目录」
-里所有 Ren'Py 游戏并让你选一个，之后所有操作都作用于它。
+`renpy_toolkit/gui.py` 给不想碰命令行的人用。它不重写任何逻辑：每个按钮都翻译成一次
+`cli.main(argv)` 调用，所以界面与命令行的行为（`--write` 语义、备份模式、退出码）
+永远一致，不存在两套实现。窗口会先扫「exe 所在目录 + 一级子目录」里所有 Ren'Py 游戏
+并让你选一个，之后所有操作都作用于它。
+
+界面是「本地服务 + 系统浏览器」：`gui.py` 只用标准库起一个 `127.0.0.1` 上的小服务，
+把 `data/ui/index.html` 发给浏览器，再用 `--app=` 参数开一个无地址栏窗口。这样做是因为
+冻结后的原生 WebView 绑定（pywebview/pythonnet）在 Windows 上要先解析 CLR，PyInstaller
+打包后极易失败；用系统浏览器没有任何原生依赖，也不需要 WebView2。
+
+除了「生成汉化骨架」会写进游戏的 `game/tl/<语言>/`，其余产物（导出表格、反编译结果、
+备份快照、日志、临时目录）都集中在 exe 旁边的 `renpy-toolkit-数据/` 里，不会污染游戏。
 
 打 exe：
 
 ```bash
-python tools/build_exe.py --clean      # onedir + onefile，并跑 --selftest 自检
+python tools/build_exe.py --clean      # 打单文件 exe，并跑 --selftest 自检
 python tools/build_exe.py --verify     # 只自检已有产物
 ```
 
@@ -653,8 +661,8 @@ site-packages 里的东西；`fontTools` 与 `openpyxl` 也得装在那一个解
 否则 exe 里「字体覆盖率 / Excel」两个按钮会静默不可用。本机既定位置
 `E:\Programs\renpy-toolkit-build\venv`，命令见 `tools/build_exe.py` 头部注释。
 
-`gui.py` 只用标准库，所以**不要**把它加进 `__all__`：没有 tkinter 的环境里星号
-导入会连带失败。命令行入口也只在需要时才 import 它。
+`gui.py` 只用标准库，所以**不要**把它加进 `__all__`：窗口相关代码只在需要时
+import，命令行与环境没有浏览器的场合都不受影响。
 
 ## 开发
 

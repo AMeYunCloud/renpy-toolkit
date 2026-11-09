@@ -1,31 +1,53 @@
-"""tkinter 图形界面（exe 分发形态专用）。
+"""图形界面（exe 分发形态专用）：本地 HTTP + 浏览器 app 窗口。
 
-命令行是给脚本的，exe 是给人用的。这个模块把同一条流水线包成"选游戏 → 点按钮"，
-所有实际操作都转成对 :func:`renpy_toolkit.cli.main` 的调用，因此界面与命令行
-行为永远一致（含 ``--write`` 语义、备份模式、退出码），不存在两套实现。
+界面是一份本地 HTML（``data/ui/index.html``），由本进程内的 HTTP 服务提供，
+再用系统的 Edge/Chrome 以 ``--app`` 模式开一个无地址栏窗口。这样界面能做成
+网页的样子，而**不需要把 pythonnet / WebView2 绑进 exe**——那套东西在
+PyInstaller 单文件包里会因为 CLR 程序集解析失败而打不开窗口。
 
-放在包内而不是单独的脚本目录，是为了让冻结后的 exe 能直接
-``from renpy_toolkit import gui``；但 **不要**把 ``gui`` 加进 ``__all__``——
-有些环境没有 tkinter，星号导入会连带失败。命令行入口只在需要时才 import 它。
+所有操作仍然只转成对 :func:`renpy_toolkit.cli.main` 的调用，界面与命令行
+行为永远一致（含 ``--write`` 语义、备份模式、退出码）。
+
+**不要**把 ``gui`` 加进 ``__all__``：界面相关代码只在 `--gui`/双击时才用到。
 """
 
 from __future__ import annotations
 
+import contextlib
+import http.server
+import io
 import json
 import os
+import shutil
+import socketserver
+import subprocess
 import sys
+import tempfile
 import threading
+import time
+import traceback
 from dataclasses import dataclass, field
 
 CONFIG_NAME = "config.json"
 DEFAULT_LANGUAGE = "chinese"
 BACKUP_MODES = ("bak", "git", "none")
+# 除 TL 注入（写进游戏 game/tl/）外，其余产物一律集中到这个目录。
+OUTPUT_DIR_NAME = "renpy-toolkit-数据"
 # 一级子目录里出现这些名字就不当游戏候选：它们是工具自己的产物目录。
-_SKIP_DIRS = frozenset({"工作区域", "可清理文件", "成品提交", "node_modules", "__pycache__"})
+_SKIP_DIRS = frozenset(
+    {"工作区域", "可清理文件", "成品提交", "node_modules", "__pycache__", OUTPUT_DIR_NAME}
+)
+# 退出码 → 人话。命令行只给数字，界面要给用户能读懂的原因。
+EXIT_HINTS = {
+    0: "成功",
+    1: "有检查项未通过，看日志里的明细",
+    2: "命令用法有误（属于工具内部问题，请反馈）",
+    3: "环境不具备：缺 git，或缺能运行游戏的 Ren'Py 运行时",
+}
 
 
 # ---------------------------------------------------------------------------
-# 纯逻辑（无 tkinter 依赖，便于单元测试）
+# 纯逻辑（无界面依赖，便于单元测试）
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Game:
@@ -56,12 +78,7 @@ class Game:
 
 
 def find_launcher(root: str) -> str | None:
-    """找启动脚本。
-
-    Ren'Py 发行的游戏根目录里一定有 ``game/``，启动器则有两种常见形态：
-    ``<Name>.py``（配 ``lib/py3-*/python.exe``）或已打包的 ``<Name>.exe``。
-    优先 ``.py``：有它才能确定用哪个解释器跑探针。
-    """
+    """找启动脚本：优先 ``.py``（能确定用哪个解释器跑探针），否则 ``.exe``。"""
     try:
         entries = sorted(os.listdir(root))
     except OSError:
@@ -76,9 +93,7 @@ def find_launcher(root: str) -> str | None:
     if pys:
         return os.path.join(root, pys[0])
     exes = [
-        n
-        for n in entries
-        if n.lower().endswith(".exe") and os.path.isfile(os.path.join(root, n))
+        n for n in entries if n.lower().endswith(".exe") and os.path.isfile(os.path.join(root, n))
     ]
     return os.path.join(root, exes[0]) if exes else None
 
@@ -105,8 +120,8 @@ def has_game_interpreter(root: str) -> bool:
 def looks_like_game(path: str) -> bool:
     """判定标准：有 ``game/`` 子目录，且能看出是个 Ren'Py 发行版。
 
-    "能看出"= 有启动脚本、或自带解释器、或 ``game/`` 里有 ``.rpy``/``.rpyc``。
-    最后一条是为了覆盖"只留了 game 目录、启动器被改名或删掉"的情况。
+    "能看出"= 有启动脚本、或自带解释器、或 ``game/`` 里有 ``.rpy``/``.rpyc``/``.rpa``。
+    最后一条覆盖"只留了 game 目录、启动器被改名或删掉"的情况。
     """
     game = os.path.join(path, "game")
     if not os.path.isdir(game):
@@ -169,7 +184,7 @@ def save_config(base: str, data: dict) -> str | None:
     """写配置，返回 None 表示成功，否则返回错误说明。
 
     exe 放在只读目录（Program Files、光盘）时写不进去属于正常情况：
-    记忆是便利功能，失败不该弹错误框打断主流程。
+    记忆是便利功能，失败不该打断主流程。
     """
     try:
         os.makedirs(base, exist_ok=True)
@@ -191,6 +206,7 @@ class Ctx:
     reference: str | None = None
     dest: str | None = None
     fonts: tuple[str, ...] = field(default_factory=tuple)
+    outdir: str | None = None
 
     @property
     def game_dir(self) -> str:
@@ -200,17 +216,36 @@ class Ctx:
     def tl_dir(self) -> str:
         return os.path.join(self.game_dir, "tl", self.language)
 
+    @property
+    def output_root(self) -> str:
+        return os.path.abspath(self.outdir or OUTPUT_DIR_NAME)
+
+    @property
+    def export_dir(self) -> str:
+        return os.path.join(self.output_root, "导出")
+
+    @property
+    def decompile_dir(self) -> str:
+        return os.path.join(self.output_root, "反编译")
+
+    @property
+    def scratch_dir(self) -> str:
+        return os.path.join(self.output_root, "临时")
+
+    @property
+    def backup_dir(self) -> str:
+        return os.path.join(self.output_root, "备份")
+
+    @property
+    def log_dir(self) -> str:
+        return os.path.join(self.output_root, "日志")
+
 
 def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]:
     """把界面动作翻译成命令行参数。
 
-    返回 ``(预览参数, [写盘参数...])``：
-
-    * 预览参数为 ``None`` 表示这个动作没有"dry-run"形态，只能直接执行；
-    * 写盘参数为空列表表示这是一个只读动作。
-
-    把这条映射单独抽成纯函数，是因为"界面点一下到底跑了哪条命令"必须
-    能被单元测试覆盖——否则改个按钮就可能悄悄改了行为。
+    返回 ``(预览参数, [写盘参数...])``：预览为 ``None`` 表示没有 dry-run 形态；
+    写盘为空列表表示只读动作。抽成纯函数是为了让"点一下跑了哪条命令"可被单测。
     """
     root, lang, tl = ctx.root, ctx.language, ctx.tl_dir
     if key == "audit":
@@ -223,8 +258,9 @@ def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]
     if key == "verify":
         return ["tl", "verify", tl, "--max-items", "300"], []
     if key == "table":
-        # 导出表格没有 dry-run：目标文件就是你选的那个路径，覆盖前由界面确认。
-        return None, [["tl", "table", tl, "-o", ctx.xlsx or "", "--format", "xlsx", "--language", lang]]
+        # 导出表格没有 dry-run：目标文件落到数据目录，覆盖前由界面确认。
+        out = ctx.xlsx or os.path.join(ctx.export_dir, "%s.xlsx" % lang)
+        return None, [["tl", "table", tl, "-o", out, "--format", "xlsx", "--language", lang]]
     if key == "apply":
         return (
             ["tl", "apply", tl, ctx.xlsx or ""],
@@ -257,7 +293,7 @@ def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]
     if key == "rpa_list":
         return ["rpa", "list", ctx.game_dir], []
     if key == "decompile":
-        dest = ctx.dest or os.path.join(root, "工作区域", "反编译")
+        dest = ctx.dest or ctx.decompile_dir
         return (
             ["decompile", "dir", ctx.game_dir, "--dest", dest],
             [["decompile", "dir", ctx.game_dir, "--dest", dest, "--write"]],
@@ -270,7 +306,7 @@ ACTION_SPECS: tuple[dict, ...] = (
     {"key": "audit", "group": "准备", "label": "环境体检", "hint": "工程风险、重复译文、归档陷阱（只读）"},
     {"key": "gen", "group": "准备", "label": "生成汉化骨架", "hint": "跑游戏本体，把全部对白与界面文本抓成 tl 骨架"},
     {"key": "port", "group": "准备", "label": "搬运旧译文", "hint": "游戏更新后，按标识符把旧译本搬到新骨架"},
-    {"key": "table", "group": "翻译", "label": "导出 Excel 表格", "hint": "导出一份可发给译者的 xlsx"},
+    {"key": "table", "group": "翻译", "label": "导出 Excel 表格", "hint": "导出一份可发给译者的 xlsx（存到数据目录）"},
     {"key": "apply", "group": "翻译", "label": "回填 Excel 译文", "hint": "把填好的 xlsx 写回 tl 文件"},
     {"key": "verify", "group": "检查", "label": "校验译文", "hint": "覆盖率、错误与警告清单（只读）"},
     {"key": "glossary", "group": "检查", "label": "术语一致性", "hint": "对照术语表检查译名是否统一（只读）"},
@@ -284,400 +320,578 @@ ACTION_SPECS: tuple[dict, ...] = (
 )
 
 
-def actions_by_group() -> dict[str, list[dict]]:
-    groups: dict[str, list[dict]] = {}
+def actions_by_group() -> list[dict]:
+    """按 ``group`` 聚成 ``[{group, actions:[spec...]}, ...]``，保持声明顺序。"""
+    order: list[str] = []
+    buckets: dict[str, list[dict]] = {}
     for spec in ACTION_SPECS:
-        groups.setdefault(spec["group"], []).append(spec)
-    return groups
+        if spec["group"] not in buckets:
+            order.append(spec["group"])
+            buckets[spec["group"]] = []
+        buckets[spec["group"]].append(spec)
+    return [{"group": g, "actions": buckets[g]} for g in order]
+
+
+def explain_error(exc: BaseException) -> tuple[str, str]:
+    """把异常翻成（一句话原因，一行怎么办）。
+
+    工具自己的异常消息已经是中文、已经写清是哪条路径/哪个文件，直接透出即可；
+    这里只补"接下来该做什么"，因为用户看到的往往只有这一行。
+    """
+    name = type(exc).__name__
+    text = str(exc) or name
+    # 按消息特征给出可执行的下一步。顺序有意义：越具体的越靠前。
+    for needle, hint in _HINT_RULES:
+        if needle in text:
+            return text, hint
+    if isinstance(exc, FileNotFoundError):
+        return "找不到文件：%s" % (getattr(exc, "filename", None) or text), "确认这个路径还在，或重新扫描游戏。"
+    if isinstance(exc, PermissionError):
+        return "没有权限：%s" % (getattr(exc, "filename", None) or text), (
+            "把这个一键包放到可写目录（例如桌面或游戏所在盘），或关掉正在占用该文件的程序。"
+        )
+    if isinstance(exc, OSError):
+        return "%s：%s" % (name, text), "检查磁盘空间、路径长度与文件占用。"
+    return "%s：%s" % (name, text), ""
+
+
+# 消息特征 → 下一步。写成表而不是一串 if，是因为这些文案会随实测不断加。
+_HINT_RULES: tuple[tuple[str, str], ...] = (
+    ("找不到可用的 git", "装 Git 并把 git.exe 加进 PATH；或者把备份方式改成 bak。"),
+    ("没有找到 .rpa", "把目标指到含 game\\ 子目录的游戏根目录，或直接指某一个 .rpa 文件。"),
+    ("Several languages", "在「目标语言」里填具体语言名（例如 chinese）再试一次。"),
+    ("没有启动脚本", "这个目录没有 <名字>.py 启动器，多半是母工程或测试副本；换正式发行版，或用「环境体检」先看它能做什么。"),
+    ("does not exist", "确认路径存在，或先点「重新扫描」。"),
+    ("No such file", "确认路径存在，或先点「重新扫描」。"),
+)
+
+
+def output_dirs(ctx: Ctx) -> list[str]:
+    """需要预先建出来的产物目录（不含 TL 注入目录）。"""
+    return [ctx.export_dir, ctx.decompile_dir, ctx.scratch_dir, ctx.backup_dir, ctx.log_dir]
 
 
 # ---------------------------------------------------------------------------
-# 界面
+# 界面：本地 HTTP 服务 + 浏览器 app 窗口
 # ---------------------------------------------------------------------------
 def base_dir() -> str:
-    """配置文件的落点：冻结后是 exe 所在目录，否则是当前目录。"""
+    """配置与数据目录的落点：冻结后是 exe 所在目录，否则是当前目录。"""
     if getattr(sys, "frozen", False):
         return os.path.dirname(os.path.abspath(sys.executable))
-    return os.getcwd()
+    return os.path.abspath(os.getcwd())
 
 
-class App:
-    def __init__(self, root_window, base: str | None = None) -> None:
-        import tkinter as tk
-        from tkinter import ttk
+def html_path() -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ui", "index.html")
 
-        self.tk = tk
-        self.ttk = ttk
-        self.win = root_window
-        self.base = base or base_dir()
+
+def crash_log_path() -> str:
+    return os.path.join(base_dir(), "renpy-toolkit-窗口错误.log")
+
+
+def _log_crash(exc: BaseException) -> str:
+    """把启动阶段的异常写进日志文件，返回路径。
+
+    窗口模式没有控制台，异常只会变成一个一闪就没的对话框，用户拿不到线索。
+    """
+    path = crash_log_path()
+    try:
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("Ren'Py 汉化工具包 启动失败\n\n")
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=fh)
+    except OSError:
+        return ""
+    return path
+
+
+def find_browser() -> str | None:
+    """找 Edge 或 Chrome：``--app`` 模式能把网页开成没有地址栏的窗口。"""
+    candidates = [
+        r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe",
+        r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe",
+        r"%ProgramFiles%\Google\Chrome\Application\chrome.exe",
+        r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe",
+        r"%LocalAppData%\Google\Chrome\Application\chrome.exe",
+    ]
+    for raw in candidates:
+        path = os.path.expandvars(raw)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+class _Stream(io.TextIOBase):
+    """把 ``cli.main`` 的打印按行推进日志缓冲。"""
+
+    def __init__(self, sink, cls: str = ""):
+        self._sink = sink
+        self._cls = cls
+        self._buf = ""
+
+    def write(self, text: str) -> int:  # noqa: D102 - TextIOBase 协议
+        self._buf += text
+        while "\n" in self._buf:
+            line, self._buf = self._buf.split("\n", 1)
+            self._sink(line, self._cls)
+        return len(text)
+
+    def flush(self) -> None:  # noqa: D102
+        if self._buf:
+            self._sink(self._buf, self._cls)
+            self._buf = ""
+
+
+class _Tee(io.TextIOBase):
+    """同时写到日志缓冲与内存（内存那份用来把预览文本回给页面）。"""
+
+    def __init__(self, stream, capture: io.StringIO):
+        self._stream = stream
+        self._capture = capture
+
+    def write(self, text: str) -> int:
+        self._stream.write(text)
+        self._capture.write(text)
+        return len(text)
+
+    def flush(self) -> None:
+        self._stream.flush()
+
+
+class Api:
+    """页面通过 ``POST /api/call {"name":..., "args":[...]}`` 调到这里。
+
+    每个方法都返回可直接 JSON 序列化的 dict；异常一律转成 ``{"error":...}``。
+    """
+
+    def __init__(self, base: str | None = None):
+        self.base = os.path.abspath(base or base_dir())
         self.config = load_config(self.base)
         self.games: list[Game] = []
         self.game: Game | None = None
-        self.ctx: Ctx | None = None
-        self.busy = False
-        self.buttons: list = []
+        self.language = str(self.config.get("language") or DEFAULT_LANGUAGE)
+        self.backup_mode = str(self.config.get("backup_mode") or "bak")
+        if self.backup_mode not in BACKUP_MODES:
+            self.backup_mode = "bak"
+        self.logs: list[tuple[str, str]] = []
+        self._log_lock = threading.Lock()
+        self._busy = threading.Lock()
 
-        self.win.title("Ren'Py 汉化工具包")
-        self.win.geometry("980x720")
-        self.win.minsize(860, 600)
+    # -- 基础设施 ---------------------------------------------------------
+    def emit(self, line: str, cls: str = "") -> None:
+        with self._log_lock:
+            self.logs.append((line, cls))
+            if len(self.logs) > 5000:
+                del self.logs[:1000]
+
+    def since(self, n: int) -> dict:
+        with self._log_lock:
+            return {"lines": [{"t": t, "c": c} for t, c in self.logs[n:]], "next": len(self.logs)}
+
+    @property
+    def outdir(self) -> str:
+        return os.path.join(self.base, OUTPUT_DIR_NAME)
+
+    def _ctx(self) -> Ctx:
+        return Ctx(root=self.game.root if self.game else "", language=self.language, outdir=self.outdir)
+
+    def _prepare_dirs(self) -> None:
+        for path in output_dirs(self._ctx()):
+            os.makedirs(path, exist_ok=True)
+
+    def _payload(self, scan_info: str = "") -> dict:
+        return {
+            "games": [
+                {"root": g.root, "name": g.name, "launcher": g.launcher, "describe": g.describe()}
+                for g in self.games
+            ],
+            "current": (
+                {"root": self.game.root, "name": self.game.name, "launcher": self.game.launcher}
+                if self.game
+                else None
+            ),
+            "version": _version(),
+            "language": self.language,
+            "backup_mode": self.backup_mode,
+            "scan_info": scan_info,
+            "outdir": self.outdir,
+            "groups": actions_by_group(),
+        }
+
+    def _rescan(self, base: str | None = None) -> int:
+        self.games = discover_games(base or self.base, depth=1)
+        if self.game and not any(g.root == self.game.root for g in self.games):
+            self.game = None
+        if self.game is None:
+            last = str(self.config.get("last_game") or "")
+            for g in self.games:
+                if last and g.root == last:
+                    self.game = g
+                    break
+            if self.game is None and len(self.games) == 1:
+                self.game = self.games[0]
+        return len(self.games)
+
+    # -- 供页面调用 -------------------------------------------------------
+    def bootstrap(self) -> dict:
         try:
-            self.win.option_add("*Font", ("Microsoft YaHei UI", 10))
-        except Exception:
-            pass
+            self._rescan()
+            if self.game:
+                self._prepare_dirs()
+            n = len(self.games)
+            return self._payload(("找到 %d 个游戏" % n) if n else "这个目录下没有游戏")
+        except Exception as exc:  # pragma: no cover - 极端环境
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint, "games": [], "groups": actions_by_group()}
 
-        self._build()
-        self._rescan()
+    def rescan(self) -> dict:
+        try:
+            n = self._rescan()
+            return self._payload(("找到 %d 个游戏" % n) if n else "这个目录下没有游戏")
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
 
-    # -- 布局 ---------------------------------------------------------------
-    def _build(self) -> None:
-        ttk, tk = self.ttk, self.tk
-        outer = ttk.Frame(self.win, padding=10)
-        outer.pack(fill="both", expand=True)
-
-        # 1. 选游戏
-        sel = ttk.LabelFrame(outer, text=" 第一步：选择目标游戏 ", padding=8)
-        sel.pack(fill="x")
-        row = ttk.Frame(sel)
-        row.pack(fill="x")
-        self.game_var = tk.StringVar()
-        self.game_box = ttk.Combobox(row, textvariable=self.game_var, state="readonly", width=88)
-        self.game_box.pack(side="left", fill="x", expand=True)
-        self.game_box.bind("<<ComboboxSelected>>", lambda _e: self._on_pick())
-        ttk.Button(row, text="重新扫描", command=self._rescan).pack(side="left", padx=(6, 0))
-        ttk.Button(row, text="浏览…", command=self._browse).pack(side="left", padx=(6, 0))
-
-        self.hint_var = tk.StringVar()
-        ttk.Label(sel, textvariable=self.hint_var, foreground="#666").pack(fill="x", pady=(6, 0))
-
-        opts = ttk.Frame(sel)
-        opts.pack(fill="x", pady=(6, 0))
-        ttk.Label(opts, text="语言目录名：").pack(side="left")
-        self.lang_var = tk.StringVar(value=str(self.config.get("language") or DEFAULT_LANGUAGE))
-        ttk.Entry(opts, textvariable=self.lang_var, width=14).pack(side="left")
-        ttk.Label(opts, text="   备份方式：").pack(side="left")
-        self.backup_var = tk.StringVar(value=str(self.config.get("backup_mode") or "bak"))
-        ttk.Combobox(
-            opts, textvariable=self.backup_var, state="readonly", width=8, values=list(BACKUP_MODES)
-        ).pack(side="left")
-        ttk.Label(
-            opts, text="   （bak = 原文件旁留 .bak，git = 影子仓库快照）", foreground="#666"
-        ).pack(side="left")
-
-        # 2. 功能按钮
-        body = ttk.Frame(outer)
-        body.pack(fill="both", expand=True, pady=(8, 0))
-        for group, specs in actions_by_group().items():
-            box = ttk.LabelFrame(body, text=" %s " % group, padding=6)
-            box.pack(fill="x", pady=(0, 6))
-            line = ttk.Frame(box)
-            line.pack(fill="x")
-            for spec in specs:
-                btn = ttk.Button(
-                    line,
-                    text=spec["label"],
-                    width=16,
-                    command=lambda k=spec["key"]: self._run_action(k),
+    def scan(self, path: str) -> dict:
+        """扫一个用户手填/挑选的目录：既可能是游戏目录，也可能是它的上一层。"""
+        try:
+            path = os.path.abspath(path)
+            if not os.path.isdir(path):
+                return {"error": "这个目录不存在：%s" % path, "hint": "检查路径拼写，或点「浏览…」。"}
+            if looks_like_game(path):
+                found = discover_games(os.path.dirname(path) or path, depth=1)
+                self.games = found
+                self.game = next(
+                    (g for g in found if g.root == path),
+                    Game(path, os.path.basename(path.rstrip("\\/")), find_launcher(path)),
                 )
-                btn.pack(side="left", padx=(0, 6), pady=2)
-                self.buttons.append(btn)
-                ttk.Label(line, text=spec["hint"], foreground="#777").pack(side="left", padx=(0, 14))
-
-        tools = ttk.Frame(body)
-        tools.pack(fill="x", pady=(0, 6))
-        ttk.Button(tools, text="打开输出目录", command=self._open_outdir).pack(side="left")
-        ttk.Button(tools, text="打开游戏目录", command=self._open_game).pack(side="left", padx=(6, 0))
-        ttk.Button(tools, text="清空日志", command=self._clear_log).pack(side="left", padx=(6, 0))
-        self.status_var = tk.StringVar(value="就绪")
-        ttk.Label(tools, textvariable=self.status_var, foreground="#0a5").pack(side="left", padx=(14, 0))
-
-        # 3. 日志
-        logbox = ttk.LabelFrame(outer, text=" 运行日志 ", padding=6)
-        logbox.pack(fill="both", expand=True, pady=(6, 0))
-        self.log = tk.Text(logbox, wrap="word", height=16, state="disabled", font=("Consolas", 9))
-        scroll = ttk.Scrollbar(logbox, orient="vertical", command=self.log.yview)
-        self.log.configure(yscrollcommand=scroll.set)
-        self.log.pack(side="left", fill="both", expand=True)
-        scroll.pack(side="right", fill="y")
-        self.log.tag_configure("err", foreground="#c00")
-        self.log.tag_configure("ok", foreground="#070")
-        self.log.tag_configure("cmd", foreground="#06c")
-
-    # -- 游戏发现 -----------------------------------------------------------
-    def _rescan(self) -> None:
-        self.games = discover_games(self.base, depth=1)
-        labels = [g.describe() for g in self.games]
-        self.game_box.configure(values=labels)
-        if not labels:
-            self.game_var.set("")
-            self.hint_var.set(
-                "在 %s 及其一级子目录里没有找到 Ren'Py 游戏。点「浏览…」直接指定游戏所在目录。" % self.base
-            )
-            self._set_game(None)
-            return
-        if len(labels) == 1:
-            self.hint_var.set("找到 1 个游戏，已自动选好；也可以点「浏览…」换一个。")
-        else:
-            self.hint_var.set("找到 %d 个游戏，请选择要处理的那一个（一次只处理一个）。" % len(labels))
-        # 有记忆就预选，否则要求用户自己选——一次只处理一个，不猜。
-        want = self.config.get("last_root")
-        idx = 0
-        for i, g in enumerate(self.games):
-            if want and os.path.normcase(g.root) == os.path.normcase(str(want)):
-                idx = i
-                break
-        self.game_box.current(idx)
-        self._on_pick()
-
-    def _on_pick(self) -> None:
-        i = self.game_box.current()
-        if 0 <= i < len(self.games):
-            self._set_game(self.games[i])
-
-    def _set_game(self, game: Game | None) -> None:
-        self.game = game
-        if game is None:
-            self.ctx = None
-            self._set_buttons(False)
-            return
-        self.ctx = Ctx(
-            root=game.root,
-            language=self.lang_var.get().strip() or DEFAULT_LANGUAGE,
-        )
-        self._set_buttons(True)
-        self.config["last_root"] = game.root
-        self._save_config()
-        self._log("已选择：%s\n  game 目录：%s\n  tl 目录：%s\n" % (game.root, game.game_dir, self.ctx.tl_dir))
-
-    def _browse(self) -> None:
-        from tkinter import filedialog
-
-        path = filedialog.askdirectory(title="选择游戏所在目录（含 game/ 的那一层）")
-        if not path:
-            return
-        path = os.path.abspath(path)
-        if not looks_like_game(path):
-            # 允许用户指到 game/ 本身或再上一层，尽量把他想要的那层找出来。
-            cand = os.path.dirname(path)
-            if looks_like_game(cand):
-                path = cand
-            elif looks_like_game(os.path.dirname(cand)):
-                path = os.path.dirname(cand)
+                if not any(g.root == path for g in self.games):
+                    self.games.insert(0, self.game)
             else:
-                self._log("这个目录不像 Ren'Py 游戏（缺少 game/ 或启动器）：%s\n" % path, "err")
-                return
-        game = Game(root=path, name=os.path.basename(path), launcher=find_launcher(path))
-        if all(os.path.normcase(g.root) != os.path.normcase(game.root) for g in self.games):
-            self.games.append(game)
-            self.game_box.configure(values=[g.describe() for g in self.games])
-        self.game_box.current(len(self.games) - 1)
-        self._on_pick()
+                self.games = discover_games(path, depth=1)
+                self.game = self.games[0] if self.games else None
+            if self.game:
+                self._prepare_dirs()
+                self._remember_game()
+            n = len(self.games)
+            return self._payload(("找到 %d 个游戏" % n) if n else "这个目录下没有游戏")
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
 
-    # -- 日志与状态 ---------------------------------------------------------
-    def _log(self, text: str, tag: str | None = None) -> None:
-        self.log.configure(state="normal")
-        start = self.log.index("end-1c")
-        self.log.insert("end", text)
-        if tag:
-            self.log.tag_add(tag, start, "end-1c")
-        self.log.see("end")
-        self.log.configure(state="disabled")
-
-    def _clear_log(self) -> None:
-        self.log.configure(state="normal")
-        self.log.delete("1.0", "end")
-        self.log.configure(state="disabled")
-
-    def _set_buttons(self, enabled: bool) -> None:
-        state = "normal" if enabled and not self.busy else "disabled"
-        for btn in self.buttons:
-            btn.configure(state=state)
-
-    def _set_busy(self, busy: bool) -> None:
-        self.busy = busy
-        self.status_var.set("正在执行…" if busy else "就绪")
-        self._set_buttons(bool(self.game))
-        self.win.configure(cursor="watch" if busy else "")
-
-    def _open_outdir(self) -> None:
-        if not self.ctx:
-            return
-        path = os.path.join(self.ctx.game_dir, "tl")
-        target = path if os.path.isdir(path) else self.ctx.root
-        self._open_path(target)
-
-    def _open_game(self) -> None:
-        if self.ctx:
-            self._open_path(self.ctx.root)
-
-    def _open_path(self, path: str) -> None:
+    def select(self, path: str) -> dict:
         try:
-            if sys.platform.startswith("win"):
-                os.startfile(path)  # noqa: S606 - 打开目录是明确的产品行为
+            target = os.path.abspath(path)
+            for g in self.games:
+                if g.root == target:
+                    self.game = g
+                    break
             else:
-                import subprocess
+                return {"error": "这个游戏已经不在扫描结果里了，点「重新扫描」再看。"}
+            self._prepare_dirs()
+            self._remember_game()
+            return self._payload()
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
 
-                subprocess.Popen(["xdg-open", path])
-        except OSError as exc:
-            self._log("打不开目录：%s (%s)\n" % (path, exc), "err")
-
-    def _save_config(self) -> None:
-        self.config["language"] = self.lang_var.get().strip() or DEFAULT_LANGUAGE
-        self.config["backup_mode"] = self.backup_var.get()
+    def save_prefs(self, language: str, backup_mode: str) -> dict:
+        self.language = (language or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
+        self.backup_mode = backup_mode if backup_mode in BACKUP_MODES else "bak"
+        self.config["language"] = self.language
+        self.config["backup_mode"] = self.backup_mode
         err = save_config(self.base, self.config)
-        if err:
-            self.status_var.set("配置未能保存（不影响使用）")
+        return {"ok": True, "error": err} if err else {"ok": True}
 
-    # -- 执行 ---------------------------------------------------------------
-    def _global_prefix(self) -> list[str]:
-        mode = self.backup_var.get()
-        return ["--backup-mode", mode] if mode in BACKUP_MODES else []
+    def open_outdir(self) -> dict:
+        try:
+            os.makedirs(self.outdir, exist_ok=True)
+            os.startfile(self.outdir)  # type: ignore[attr-defined]
+            return {"ok": True}
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
 
-    def _run_cli(self, argv: list[str], then=None) -> None:
-        """在后台线程跑一次 CLI，把 stdout/stderr 收进日志。
+    def open_game(self) -> dict:
+        if not self.game:
+            return {"error": "还没选游戏。"}
+        try:
+            os.startfile(self.game.root)  # type: ignore[attr-defined]
+            return {"ok": True}
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
 
-        用线程是为了让界面不假死：``tl gen`` 要跑游戏本体，几十秒起步。
-        tkinter 不是线程安全的，所以只有这里读管道，界面更新一律经
-        ``win.after`` 回主线程。
+    def run_action(self, key: str, confirm: bool = False) -> dict:
+        """执行一个动作。``confirm=False`` 时只做预演，返回需要确认的内容。"""
+        if not self.game:
+            return {"error": "先在上面选一个游戏。"}
+        if not self._busy.acquire(blocking=False):
+            return {"error": "上一条命令还在跑，等它结束。"}
+        try:
+            ctx = self._ctx()
+            self._prepare_dirs()
+            preview, writes = build_action(key, ctx)
+            if writes and not confirm:
+                text = ""
+                if preview is not None:
+                    code, text = self._invoke(preview, ctx)
+                    if code not in (0, 1):
+                        return {"error": self._exit_message(code), "hint": EXIT_HINTS.get(code, "")}
+                targets = sorted({_target_of(argv) for argv in writes})
+                return {
+                    "need_confirm": True,
+                    "preview_text": text.strip() or "（无预演输出）",
+                    "write_count": len(writes),
+                    "write_targets": targets,
+                }
+            argv_list = writes or ([preview] if preview else [])
+            if not argv_list:
+                return {"ok": True, "code": 0, "hint": "这条命令不需要写文件。"}
+            worst = 0
+            for argv in argv_list:
+                code, _text = self._invoke(argv, ctx)
+                if code != 0:
+                    worst = code
+                    break
+            return {"ok": worst == 0, "code": worst, "hint": EXIT_HINTS.get(worst, "")}
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            return {"error": msg, "hint": hint}
+        finally:
+            self._busy.release()
+
+    # -- 执行辅助 ---------------------------------------------------------
+    def _remember_game(self) -> None:
+        if not self.game:
+            return
+        self.config["last_game"] = self.game.root
+        self.config["language"] = self.language
+        self.config["backup_mode"] = self.backup_mode
+        save_config(self.base, self.config)
+
+    # 日志面板只显示首尾；中段几万行对用户是噪声，但丢了又没法排错，
+    # 所以全量落到数据目录下的日志文件里。
+    HEAD_LINES = 12
+    TAIL_LINES = 90
+
+    def _invoke(self, argv: list[str], ctx: Ctx) -> tuple[int, str]:
+        """跑一条子命令。
+
+        输出先全部收进内存，再由 :meth:`_flush_log` 决定显示哪部分：命令跑错时
+        最有价值的是**最后几行**（错误与退出码），而 `rpa list` 这种会吐两万行，
+        逐行推到页面上只会把错误淹没。
         """
-        import io
-
         from . import cli
 
-        full = self._global_prefix() + argv
-        self._log("$ renpy-toolkit %s\n" % " ".join(full), "cmd")
-        self._set_busy(True)
-
-        def work() -> None:
-            buf_out, buf_err = io.StringIO(), io.StringIO()
-            saved = sys.stdout, sys.stderr
-            sys.stdout, sys.stderr = buf_out, buf_err
-            try:
-                code = cli.main(full)
-            except BaseException as exc:  # GUI 不能因为一次异常就退出
-                code = 99
-                buf_err.write("\n[内部错误] %r\n" % (exc,))
-            finally:
-                sys.stdout, sys.stderr = saved
-            text = buf_out.getvalue() + buf_err.getvalue()
-
-            def finish() -> None:
-                self._set_busy(False)
-                if text:
-                    self._log(text if text.endswith("\n") else text + "\n", "err" if code else None)
-                self._log("[退出码 %d]\n\n" % code, "ok" if code == 0 else "err")
-                if then is not None:
-                    then(code, text)
-
-            self.win.after(0, finish)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _run_action(self, key: str) -> None:
-        if not self.ctx or self.busy:
-            return
-        from tkinter import filedialog, messagebox
-
-        ctx = self.ctx
-        ctx.language = self.lang_var.get().strip() or DEFAULT_LANGUAGE
-        self._save_config()
-
-        # 需要用户先给路径的几个动作。
-        if key == "table":
-            path = filedialog.asksaveasfilename(
-                title="导出到",
-                defaultextension=".xlsx",
-                initialfile="%s.xlsx" % ctx.language,
-                filetypes=[("Excel 工作簿", "*.xlsx")],
-            )
-            if not path:
-                return
-            ctx.xlsx = path
-        elif key == "apply":
-            path = filedialog.askopenfilename(
-                title="选择填好译文的表格", filetypes=[("表格", "*.xlsx *.csv *.tsv *.json *.po"), ("全部", "*.*")]
-            )
-            if not path:
-                return
-            ctx.xlsx = path
-        elif key == "port":
-            path = filedialog.askdirectory(title="选择旧译本目录（如 game/tl/Chinese）")
-            if not path:
-                return
-            ctx.reference = os.path.abspath(path)
-        elif key == "decompile":
-            path = filedialog.askdirectory(title="反编译输出到哪里（取消则用 工作区域\\反编译）")
-            ctx.dest = os.path.abspath(path) if path else ""
-        elif key == "font_check":
-            paths = filedialog.askopenfilenames(
-                title="选择字体文件（可多选）", filetypes=[("字体", "*.ttf *.otf *.ttc")]
-            )
-            if not paths:
-                return
-            ctx.fonts = tuple(os.path.abspath(p) for p in paths)
-
+        full = ["--backup-mode", self.backup_mode] + list(argv)
+        os.environ["RTK_SCRATCH"] = ctx.scratch_dir
+        os.environ["RTK_BACKUP_DIR"] = ctx.backup_dir
+        buf: list[tuple[str, str]] = [("$ renpy-toolkit " + " ".join(argv), "cmd")]
+        capture = io.StringIO()
+        code = 0
+        out = _Stream(lambda text, cls: buf.append((text, cls)))
+        err = _Stream(lambda text, cls: buf.append((text, "err")))
         try:
-            preview, writes = build_action(key, ctx)
-        except KeyError:
-            return
-        if not preview and not writes:
-            return
-        if not writes:
-            self._run_cli(preview)
-            return
-
-        # 会写盘：先跑 dry-run，把"将写入什么"摆出来，再问一次。
-        def after_preview(code: int, text: str) -> None:
-            detail = "\n".join(line for line in text.strip().splitlines()[-8:] if line.strip())
-            if not messagebox.askyesno(
-                "确认执行",
-                "即将写入文件。\n\n%s\n\n输出目录：\n%s\n\n继续吗？" % (detail or "（无预览输出）", ctx.tl_dir),
-                default="no",
+            with contextlib.redirect_stdout(_Tee(out, capture)), contextlib.redirect_stderr(
+                _Tee(err, capture)
             ):
-                self._log("已取消。\n\n")
-                return
-            self._run_sequence(writes)
+                code = int(cli.main(full) or 0)
+        except SystemExit as exc:  # argparse 出错时
+            code = int(exc.code or 2) if isinstance(exc.code, int) else 2
+        except Exception as exc:
+            msg, hint = explain_error(exc)
+            buf.append(("错误：" + msg, "err"))
+            if hint:
+                buf.append(("提示：" + hint, "warn"))
+            buf.append((traceback.format_exc(limit=3), "dim"))
+            self._flush_log(buf, argv, code or 2)
+            return 2, capture.getvalue()
+        if code:
+            buf.append(("退出码 %d：%s" % (code, EXIT_HINTS.get(code, "")), "warn"))
+        self._flush_log(buf, argv, code)
+        return code, capture.getvalue()
 
-        if preview:
-            self._run_cli(preview, then=after_preview)
+    def _log_path(self, argv: list[str]) -> str:
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        slug = "-".join(t for t in argv if not t.startswith("-"))[:48] or "run"
+        slug = "".join(ch if (ch.isalnum() or ch in "-_.中") else "_" for ch in slug)
+        return os.path.join(self.outdir, "日志", "%s-%s.log" % (stamp, slug))
+
+    def _flush_log(self, buf: list[tuple[str, str]], argv: list[str], code: int) -> None:
+        path = ""
+        try:
+            path = self._log_path(argv)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write("\n".join(text for text, _cls in buf) + "\n")
+        except OSError:
+            path = ""
+        total = len(buf)
+        if total <= self.HEAD_LINES + self.TAIL_LINES:
+            for text, cls in buf:
+                self.emit(text, cls)
         else:
-            after_preview(0, "")
+            for text, cls in buf[: self.HEAD_LINES]:
+                self.emit(text, cls)
+            self.emit(
+                "… 中间省略 %d 行（完整输出在下面的日志文件里）…"
+                % (total - self.HEAD_LINES - self.TAIL_LINES),
+                "dim",
+            )
+            for text, cls in buf[-self.TAIL_LINES :]:
+                self.emit(text, cls)
+        if path:
+            self.emit("完整输出：%s" % path, "dim")
 
-    def _run_sequence(self, argvs: list[list[str]]) -> None:
-        """按顺序跑多条命令；任一条失败就停，不再往下写。"""
-        queue = list(argvs)
+    def _exit_message(self, code: int) -> str:
+        return "预演就没通过（退出码 %d）：%s" % (code, EXIT_HINTS.get(code, ""))
 
-        def step() -> None:
-            if not queue:
+    # 方法白名单：只有这里列出的名字能被页面调用。
+    EXPOSED = (
+        "bootstrap", "rescan", "scan", "select", "save_prefs",
+        "open_outdir", "open_game", "run_action",
+    )
+
+
+def _target_of(argv: list[str]) -> str:
+    """粗略指出这条命令会写哪儿，用于确认弹窗。"""
+    for flag in ("--outdir", "-o", "--dest"):
+        if flag in argv:
+            i = argv.index(flag)
+            if i + 1 < len(argv):
+                return argv[i + 1]
+    for token in argv:
+        if os.sep in token or "/" in token:
+            return token
+    return "（见日志）"
+
+
+def _version() -> str:
+    try:
+        from . import __version__
+
+        return str(__version__)
+    except Exception:
+        return ""
+
+
+class _Handler(http.server.BaseHTTPRequestHandler):
+    api: Api  # 由 make_server 注入
+    page: bytes = b""
+
+    def log_message(self, *args) -> None:  # noqa: D102 - 关掉默认访问日志
+        pass
+
+    def _send(self, code: int, body: bytes, ctype: str) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            self.wfile.write(body)
+        except OSError:
+            pass
+
+    def _json(self, payload: dict) -> None:
+        self._send(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                   "application/json; charset=utf-8")
+
+    def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 协议
+        path = self.path.split("?", 1)[0]
+        if path in ("/", "/index.html"):
+            self._send(200, self.page, "text/html; charset=utf-8")
+            return
+        if path == "/api/logs":
+            query = self.path.split("?", 1)[1] if "?" in self.path else ""
+            since = 0
+            for part in query.split("&"):
+                if part.startswith("since="):
+                    try:
+                        since = int(part[6:])
+                    except ValueError:
+                        since = 0
+            self._json(self.api.since(since))
+            return
+        self._send(404, b"not found", "text/plain; charset=utf-8")
+
+    def do_POST(self) -> None:  # noqa: N802
+        if self.path.split("?", 1)[0] != "/api/call":
+            self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            raw = self.rfile.read(length) if length else b"{}"
+            req = json.loads(raw.decode("utf-8") or "{}")
+            name = str(req.get("name") or "")
+            args = req.get("args") or []
+            if name not in Api.EXPOSED:
+                self._json({"error": "未知操作：%s" % name})
                 return
-            argv = queue.pop(0)
+            result = getattr(self.api, name)(*args)
+            self._json(result if isinstance(result, dict) else {"ok": True, "value": result})
+        except Exception as exc:  # 兜住一切，页面永远拿到 JSON
+            msg, hint = explain_error(exc)
+            self._json({"error": msg, "hint": hint})
 
-            def after(code: int, _text: str) -> None:
-                if code != 0:
-                    self._log("上一步未成功，后续写入已停止。\n\n", "err")
-                    return
-                step()
 
-            self._run_cli(argv, then=after)
+class _Server(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
 
-        step()
+
+def make_server(api: Api, port: int = 0) -> tuple[_Server, int]:
+    page_path = html_path()
+    with open(page_path, "rb") as fh:
+        page = fh.read()
+
+    class Handler(_Handler):
+        pass
+
+    Handler.api = api
+    Handler.page = page
+    srv = _Server(("127.0.0.1", port), Handler)
+    return srv, srv.server_address[1]
 
 
 def main(argv: list[str] | None = None) -> int:
-    """启动图形界面。tkinter 缺失时打印说明并返回环境错误码。"""
-    try:
-        import tkinter as tk
-    except ImportError:
-        sys.stderr.write(
-            "error: this build has no tkinter, so the window cannot open.\n"
-            "Use the command line instead: renpy-toolkit --help\n"
-        )
+    """起本地服务并开窗口。找不到浏览器时返回 5 并写日志。"""
+    page = html_path()
+    if not os.path.isfile(page):
+        print("图形界面不可用：找不到界面文件 %s" % page, file=sys.stderr)
         return 3
-    base = argv[0] if argv else None
-    win = tk.Tk()
-    App(win, base)
-    win.mainloop()
-    return 0
-
-
-if __name__ == "__main__":  # pragma: no cover
-    sys.exit(main())
+    try:
+        api = Api()
+        srv, port = make_server(api)
+        url = "http://127.0.0.1:%d/" % port
+        thread = threading.Thread(target=srv.serve_forever, daemon=True)
+        thread.start()
+        browser = find_browser()
+        if not browser:
+            api.emit("找不到 Edge 或 Chrome，界面无法打开。", "err")
+            srv.shutdown()
+            print("找不到 Edge 或 Chrome：请安装其一，或改用命令行（--cli --help）。",
+                  file=sys.stderr)
+            return 5
+        # 浏览器 profile 放在数据目录的「临时」里，不用 tempfile：受限账户下
+        # %TEMP% 可能不可写，tempfile.gettempdir() 会回落到当前目录，把几百兆的
+        # profile 丢在用户的工作目录里。放这里既好清理，也符合"产物集中一处"。
+        profile_root = os.path.join(api.outdir, "临时")
+        os.makedirs(profile_root, exist_ok=True)
+        profile = tempfile.mkdtemp(prefix="浏览器-", dir=profile_root)
+        proc = subprocess.Popen(
+            [browser, "--app=%s" % url, "--window-size=1200,800", "--no-first-run",
+             "--no-default-browser-check", "--disable-features=msEdgeSidebarV2",
+             "--user-data-dir=%s" % profile],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        proc.wait()  # 关窗口就退出
+        srv.shutdown()
+        shutil.rmtree(profile, ignore_errors=True)
+        return 0
+    except Exception as exc:
+        path = _log_crash(exc)
+        print("图形界面启动失败：%s" % exc, file=sys.stderr)
+        if path:
+            print("详细信息已写入 %s" % path, file=sys.stderr)
+        return 4

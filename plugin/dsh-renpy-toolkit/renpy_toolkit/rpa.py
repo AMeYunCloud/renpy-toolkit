@@ -581,6 +581,156 @@ class RenPyArchive:
         }
 
 
+class MultiArchive:
+    """A read-only view over several ``.rpa`` files, as one archive.
+
+    Ren'Py lets a release ship as many archives as it likes — the build in the
+    wild that prompted this splits assets into ``archive.rpa`` and
+    ``archive2.rpa``. Callers that just want "the files of this game" should
+    not have to care how many archives the author used, so this class presents
+    them as one namespace.
+
+    When two archives carry the same name, the **earlier** one wins: that is
+    the order Ren'Py's own loader searches, so reading the same logical file
+    gives the same bytes the game would see.
+
+    Only reading is supported; writing still needs a single archive, because
+    "which archive should the new file go into" has no answer that would not
+    surprise the caller.
+    """
+
+    def __init__(self, archives: list["RenPyArchive"]) -> None:
+        if not archives:
+            raise ValueError("MultiArchive needs at least one archive")
+        self._archives = list(archives)
+        self._owner: dict[str, RenPyArchive] = {}
+        for archive in self._archives:
+            for name in archive.names():
+                self._owner.setdefault(name, archive)
+
+    # ---------------------------------------------------------------- 基本
+    @property
+    def archives(self) -> list["RenPyArchive"]:
+        return list(self._archives)
+
+    @property
+    def entries(self) -> dict[str, Entry]:
+        merged: dict[str, Entry] = {}
+        for name, archive in self._owner.items():
+            merged[name] = archive.entries[name]
+        return merged
+
+    def names(self) -> list[str]:
+        return sorted(self._owner)
+
+    def has(self, filename: str) -> bool:
+        return filename in self._owner
+
+    def __contains__(self, filename: object) -> bool:
+        return filename in self._owner
+
+    def __len__(self) -> int:
+        return len(self._owner)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.names())
+
+    # ---------------------------------------------------------------- 读取
+    def read(self, filename: str) -> bytes:
+        try:
+            archive = self._owner[filename]
+        except KeyError:
+            raise KeyError(filename) from None
+        return archive.read(filename)
+
+    def read_entry(self, filename: str) -> Entry:
+        return self._owner[filename]
+
+    def extract(self, filename: str, dest: str) -> None:
+        self._owner[filename].extract(filename, dest)
+
+    def extract_all(self, destdir: str, *, overwrite: bool = True) -> list[str]:
+        written: list[str] = []
+        for archive in self._archives:
+            written.extend(archive.extract_all(destdir, overwrite=overwrite))
+        return written
+
+    # ---------------------------------------------------------------- 报告
+    def info(self) -> str:
+        lines = [archive.info() for archive in self._archives]
+        total = sum(e.length for e in self.entries.values())
+        lines.append(
+            "%d archive(s) as one view: %d distinct files, %s bytes"
+            % (len(self._archives), len(self), f"{total:,}")
+        )
+        return "\n".join(lines)
+
+    def stats(self) -> dict[str, int]:
+        entries = self.entries
+        return {
+            "files": len(entries),
+            "bytes": sum(e.length for e in entries.values()),
+            "staged_add": 0,
+            "staged_remove": 0,
+            "version": self._archives[0].version,
+            "archives": len(self._archives),
+        }
+
+    def close(self) -> None:
+        for archive in self._archives:
+            archive.close()
+
+    def __enter__(self) -> "MultiArchive":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
+
+def find_archives(path: str) -> list[str]:
+    """Return the ``.rpa`` files that belong to *path*.
+
+    *path* may be an archive, a game directory (holding ``*.rpa`` directly), or
+    a project directory whose archives live one level down in ``game/``.
+    Both layouts occur in real releases, and asking the user which one they
+    meant is a question the filesystem already answers.
+    """
+    if os.path.isfile(path):
+        return [path]
+    if not os.path.isdir(path):
+        return []
+    for candidate in (path, os.path.join(path, "game")):
+        if not os.path.isdir(candidate):
+            continue
+        found = sorted(
+            os.path.join(candidate, n)
+            for n in os.listdir(candidate)
+            if n.lower().endswith(".rpa")
+        )
+        if found:
+            return found
+    return []
+
+
+def open_archive(path: str, *, key: int | None = None):
+    """Open *path* for reading, transparently handling multi-archive releases.
+
+    Raises ``RPAError`` (a ``ToolkitError``) with a message that says what was
+    actually looked at, instead of a bare "not found".
+    """
+    archives = find_archives(path)
+    if not archives:
+        raise RPAError(
+            f"没有找到 .rpa 归档：{path}"
+            "（已查看该目录本身和它下面的 game\\ 子目录；"
+            "如果游戏没有打包归档，那是正常的，说明资源是散放的）"
+        )
+    if len(archives) == 1:
+        return RenPyArchive.open(archives[0], key=key)
+    opened = [RenPyArchive.open(a, key=key) for a in archives]
+    return MultiArchive(opened)
+
+
 def detect(path: str) -> int | None:
     """Return the archive version of *path*, or None if unrecognised.
 
@@ -609,12 +759,15 @@ def is_rpa(path: str) -> bool:
 __all__ = [
     "DEFAULT_KEY",
     "Entry",
+    "MultiArchive",
     "RenPyArchive",
     "RPAError",
     "RPA1_MAGIC",
     "RPA2_MAGIC",
     "RPA3_MAGIC",
     "detect",
+    "find_archives",
     "is_rpa",
     "normalise_name",
+    "open_archive",
 ]

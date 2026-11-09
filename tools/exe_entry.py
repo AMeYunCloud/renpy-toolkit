@@ -42,6 +42,7 @@ def _ensure_streams():
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    _install_crash_hook()
 
     # 显式 `--cli` 与任何看起来像选项的参数都按命令行处理：这样同一个 exe
     # 既能双击用，也能被脚本调用，冻结版的 --selftest 还能被构建脚本验收。
@@ -60,10 +61,12 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         from renpy_toolkit import gui
-    except Exception as exc:  # 极端环境：连 tkinter 都没有
+    except Exception as exc:  # 极端环境：包内 gui 都导入不了（缺失文件、权限）
         handle = _ensure_streams()
         try:
-            sys.stderr.write("无法启动窗口：%r\n请改用命令行：renpy-toolkit.exe --cli --help\n" % (exc,))
+            sys.stderr.write(
+                "无法启动窗口：%r\n请改用命令行：renpy-toolkit.exe --cli --help\n" % (exc,)
+            )
         finally:
             if handle is not None:
                 handle.close()
@@ -75,6 +78,31 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if handle is not None:
             handle.close()
+
+
+def _install_crash_hook() -> None:
+    """把未捕获异常写进同目录日志。
+
+    窗口模式没有控制台，PyInstaller 只会弹一个"Failed to execute script"，
+    内容全丢。用户既看不懂也没法反馈，所以我们自己落一份可读的 traceback。
+    """
+
+    def hook(exc_type, exc, tb):
+        import traceback
+
+        try:
+            base = os.path.dirname(os.path.abspath(sys.executable))
+        except Exception:
+            base = os.getcwd()
+        path = os.path.join(base, "renpy-toolkit-窗口错误.log")
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("Ren'Py 汉化工具包 启动失败\n\n")
+                traceback.print_exception(exc_type, exc, tb, file=fh)
+        except OSError:
+            pass
+
+    sys.excepthook = hook
 
 
 if __name__ == "__main__":

@@ -32,7 +32,7 @@ renpy-toolkit/
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
 │   ├── build_portable.py   构建 dist/portable 一键包（含 .zip）
-│   ├── build_exe.py        用 PyInstaller 打 Windows exe（onedir + onefile）并自检
+│   ├── build_exe.py        用 PyInstaller 打 Windows exe（单文件版）并自检
 │   ├── exe_entry.py        exe 入口：无参数开窗口，带参数走命令行
 │   ├── check_portable.py   在干净解压副本上验收一键包
 │   ├── check_skill.py      校验 SKILL.md 承诺的 flag 与子命令真实存在
@@ -41,7 +41,7 @@ renpy-toolkit/
 └── dist/                   构建产物（不入库）
     ├── plugin/             供 skill 调用的包目录
     ├── portable/           一键包目录 + renpy-toolkit-<version>.zip
-    └── exe/                Windows exe（onedir/ 与 onefile/）
+    └── exe/                Windows exe（onefile/renpy-toolkit.exe）
 ```
 
 `plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 由 `tools/build_*.py` 生成、被 `.gitignore`
@@ -77,17 +77,20 @@ pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl�
 
 ### Windows exe（图形界面）
 
-`python tools/build_exe.py` 产出两个形态（需要构建虚拟环境，见脚本头部说明）：
+`python tools/build_exe.py` 产出**单文件版**（需要构建虚拟环境，见脚本头部说明）：
 
 ```
-dist/exe/onedir/renpy-toolkit/        文件夹版，整个目录一起分发
-dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件
+dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件，双击即用
 ```
 
-双击打开窗口，窗口自己扫「exe 所在目录 + 它的一级子目录」里所有 Ren'Py 游戏
+界面是一个深色网页，由 exe 起一个**只监听本机 127.0.0.1** 的小服务，再用系统自带的
+Edge/Chrome 以「app 窗口」模式打开（没有地址栏，看起来就是个桌面程序；不联网、
+不加载任何远程资源）。找不到这两个浏览器时，exe 会提示你改用 `--cli`。
+双击后窗口自己扫「exe 所在目录 + 它的一级子目录」里所有 Ren'Py 游戏
 （判定标准：有 `game/` 子目录，且有启动器 `.py`/`.exe`、或 `lib/py3-*/python.exe`、
-或 `game/` 里有 `.rpy`/`.rpyc`），列出来让你选一个。**0 个、1 个、多个都会弹出
-这个窗口**——一次只处理选中的那一个，不碰其它游戏。
+或 `game/` 里有 `.rpy`/`.rpyc`/`.rpa`），列成卡片让你选一个。**0 个、1 个、多个都会
+弹出这个窗口**——一次只处理选中的那一个，不碰其它游戏。自动扫描没找到时，点「浏览…」
+手动指到游戏所在文件夹。
 
 选完之后所有按钮都作用于这个游戏，不再问路径：
 
@@ -99,24 +102,35 @@ dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件
 | 工具 | 字体覆盖率、字体替换模板、查看备份、立即备份 |
 | 资源 | 查看归档内容、反编译 `.rpyc` |
 
-会写文件的按钮**先跑一遍 dry-run**，把「将写入什么、写到哪个目录」摆出来，
-点确认才真的落盘。语言目录名与备份方式（`bak` / `git`）在窗口里选，选择会记在
-exe 同目录的 `config.json`，下次启动预选上次的游戏。
+会写文件的按钮**先跑一遍 dry-run**，弹窗把「将写入几个目标、写到哪个目录」和预演输出
+一起摆出来，点「确认执行」才真的落盘。语言目录名与备份方式（`bak` / `git` / `none`）在
+窗口里选，选择会记在 exe 同目录的 `config.json`，下次启动预选上次的游戏。
 
-exe 自带 `fontTools` 与 `openpyxl`（字体覆盖率与 Excel 两功能开箱可用），
-因此比一键包大约 15 MB。它也能当命令行用：`renpy-toolkit.exe --cli --help`；
-窗口模式没有控制台，命令行输出改写在同一目录的 `renpy-toolkit-cli.log`。
+**产物集中在一个目录里**：除了「生成汉化骨架」必须写进游戏 `game\tl\<语言>\`，
+其余所有产物都落在 exe 旁边的 `renpy-toolkit-数据\`：
+
+```
+renpy-toolkit-数据\导出\      导出的 xlsx
+renpy-toolkit-数据\反编译\    从 .rpyc 还原的 .rpy
+renpy-toolkit-数据\备份\      译文快照（bak 副本或 git 影子仓库）
+renpy-toolkit-数据\临时\      跑游戏探针时的临时目录
+renpy-toolkit-数据\日志\
+```
+
+exe 自带 `fontTools`、`openpyxl`（字体覆盖率、Excel 两块开箱可用）；界面走系统浏览器，
+不依赖 WebView2 或任何原生绑定。
+它也能当命令行用：`renpy-toolkit.exe --cli --help`；窗口模式没有控制台，命令行输出改写
+在 exe 同目录的 `renpy-toolkit-cli.log`。
 
 `tl gen` 仍然需要游戏自带的解释器（`lib/py3-*/python.exe`），这是设计使然：
 只有游戏自己的运行时里才有它那份 `renpy/` 引擎代码，本项目不去复刻引擎。
 
-**单文件版的两个已知限制**（文件夹版没有这些问题，所以优先用文件夹版）：
+**单文件版的已知限制**：
 
-- 每次启动都要把约 17 MB 内容解包到临时目录，第一次打开比文件夹版慢几秒；
+- 每次启动都要把包解到临时目录，第一次打开比常规程序慢一两秒；
 - 如果系统策略不允许程序在自己的临时目录下创建子目录（企业管控、部分安全软件、
-  受限用户令牌），单文件版会打不开、或双击后一闪就没了。这时改用文件夹版即可，
-  或者重建时指定解包目录：
-  `python tools/build_exe.py --onefile-only --runtime-tmpdir D:\rt`
+  受限用户令牌），单文件版会打不开、或双击后一闪就没了。这时重建时指定解包目录：
+  `python tools/build_exe.py --runtime-tmpdir D:\rt`
   （`--verify` 会把这种情况标成「环境受限」而不是失败）。
 
 ### 一键包（便携发布形态）
@@ -258,7 +272,7 @@ python tools/build_release.py            # 生成 dist/plugin（含 VERSION 与 
 python tools/build_release.py --verify   # 重新哈希逐个比对
 python tools/build_release.py --sync     # 再用发布版覆盖 plugin/dsh-renpy-toolkit/，两边不许漂移
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
-python tools/build_exe.py --clean        # 生成 dist/exe（onedir + onefile），并跑 --selftest 自检
+python tools/build_exe.py --clean        # 生成 dist/exe/onefile 单文件 exe，并跑 --selftest 自检
 python tools/check_portable.py           # 在干净解压副本上验收一键包（自检/子命令/退出码/清单/行尾）
 python tools/check_skill.py              # 校验 SKILL.md 里写的每个 flag 与子命令真实存在
 python tools/check_readme.py             # 校验 README 的目录锚点与相对链接

@@ -183,10 +183,16 @@ after a Ren'Py upgrade.
 
 **Windows GUI (exe)**
 
-- `renpy_toolkit/gui.py` — a tkinter window for people who will not touch a
+- `renpy_toolkit/gui.py` — a window for people who will not touch a
   command line. It reimplements nothing: every button becomes one
   `cli.main(argv)` call, so the window and the CLI cannot drift apart on
   `--write` semantics, backup mode or exit codes.
+- The window is a local HTTP server plus the system browser: `gui.py` serves
+  `data/ui/index.html` from `127.0.0.1` (standard library only) and opens it
+  with `--app=` so there is no address bar. The earlier native WebView binding
+  (pywebview/pythonnet) was dropped: once frozen by PyInstaller it has to
+  resolve the CLR, and that fails on machines where the netfx/coreclr choice
+  cannot be satisfied — the browser route has no native dependency at all.
 - On start it scans the exe's own directory plus one level down for Ren'Py
   games (a directory with `game/` plus a `.py`/`.exe` launcher, a bundled
   `lib/py3-*/python.exe`, or `.rpy`/`.rpyc` inside `game/`) and always shows
@@ -196,11 +202,16 @@ after a Ren'Py upgrade.
   and where; the write only happens after a confirmation. Language directory
   name and backup mode are chosen in the window and remembered in
   `config.json` next to the exe.
-- `tools/build_exe.py` builds both forms with PyInstaller (`dist/exe/onedir/`
-  and `dist/exe/onefile/`) and verifies each by running `--selftest` on the
-  frozen binary. `tools/exe_entry.py` opens the window with no arguments and
-  dispatches to the CLI when the first argument looks like an option, which
-  is also what makes the frozen self-check possible.
+- Only the translation skeleton lands inside the game (`game/tl/<language>/`).
+  Everything else the tool produces — exported spreadsheets, decompiled
+  scripts, backup snapshots, logs, scratch space — goes to a single
+  `renpy-toolkit-数据/` folder beside the exe, so a translation run does not
+  litter a game the user did not choose.
+- `tools/build_exe.py` builds a single-file exe with PyInstaller and verifies
+  it by running `--selftest` on the frozen binary. `tools/exe_entry.py` opens
+  the window with no arguments and dispatches to the CLI when the first
+  argument looks like an option, which is also what makes the frozen
+  self-check possible.
 - The exe bundles `fontTools` and `openpyxl` (both MIT), so font-coverage and
   XLSX work out of the box there; the portable zip and the skill stay
   standard-library-only. A windowed build has no console, so CLI output is
@@ -210,8 +221,7 @@ after a Ren'Py upgrade.
   launch. Where policy forbids creating that directory (locked-down tokens,
   some endpoint security), it fails before the app starts; `--verify` reports
   that as an environment skip rather than a broken build, and
-  `--runtime-tmpdir DIR` rebuilds it against a directory you control. The
-  folder form has no such dependency and is the recommended download.
+  `--runtime-tmpdir DIR` rebuilds it against a directory you control.
 
 ### Security
 

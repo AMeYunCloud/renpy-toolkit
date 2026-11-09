@@ -46,6 +46,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 
 from .errors import MissingToolError, ToolkitError
@@ -187,16 +188,32 @@ def backup_root(path: str) -> str:
     translation tree, so a snapshot taken while editing one language can also
     restore the others. Without a ``tl`` ancestor the file's own directory is
     used, which is still a sane unit for a one-off ``.rpy`` edit.
+
+    ``RTK_BACKUP_DIR`` overrides the location: the repository is then created
+    inside that directory, one subdirectory per translation tree. The GUI uses
+    it so that everything the tool writes lives in a single folder beside the
+    exe instead of dropping ``.renpy-toolkit.git`` into the game the user is
+    translating.
     """
     directory = os.path.dirname(os.path.abspath(path)) or os.getcwd()
     probe = directory
+    found = None
     while True:
         if os.path.basename(probe).lower() == "tl":
-            return probe
+            found = probe
+            break
         parent = os.path.dirname(probe)
         if parent == probe:
-            return directory
+            break
         probe = parent
+    if found is None:
+        found = directory
+
+    override = os.environ.get("RTK_BACKUP_DIR")
+    if override:
+        digest = hashlib.sha1(os.path.abspath(found).encode("utf-8")).hexdigest()[:12]
+        return os.path.join(os.path.abspath(override), digest)
+    return found
 
 
 def keep(dest: str, previous: bytes | None = None, *, message: str = "") -> str | None:

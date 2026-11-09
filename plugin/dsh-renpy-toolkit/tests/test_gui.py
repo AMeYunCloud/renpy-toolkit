@@ -163,9 +163,11 @@ class TestActionMapping(unittest.TestCase):
         self.assertEqual(preview[2], TL)
         self.assertEqual(preview[3], "C:/old")
 
-    def test_decompile_defaults_to_work_area(self) -> None:
+    def test_decompile_defaults_into_output_dir(self) -> None:
         preview, _writes = gui.build_action("decompile", self.ctx())
-        self.assertTrue(any("工作区域" in el and "反编译" in el for el in preview), preview)
+        self.assertTrue(any("反编译" in el for el in preview), preview)
+        self.assertTrue(any("renpy-toolkit-数据" in el or "outdir" in el.lower() for el in preview)
+                        or os.path.basename(str(preview[-1])) == "反编译", preview)
 
     def test_unknown_action_raises(self) -> None:
         with self.assertRaises(KeyError):
@@ -176,8 +178,16 @@ class TestActionMapping(unittest.TestCase):
             gui.build_action(spec["key"], self.ctx(xlsx="C:/t.xlsx", reference="C:/r", fonts=("C:/f.ttf",)))
 
     def test_groups_cover_every_spec(self) -> None:
-        grouped = sum(len(v) for v in gui.actions_by_group().values())
+        groups = gui.actions_by_group()
+        self.assertTrue(isinstance(groups, list))
+        grouped = sum(len(g["actions"]) for g in groups)
         self.assertEqual(grouped, len(gui.ACTION_SPECS))
+        # 分组顺序应与 ACTION_SPECS 首次出现的顺序一致
+        seen: list[str] = []
+        for spec in gui.ACTION_SPECS:
+            if spec["group"] not in seen:
+                seen.append(spec["group"])
+        self.assertEqual([g["group"] for g in groups], seen)
 
 
 if __name__ == "__main__":

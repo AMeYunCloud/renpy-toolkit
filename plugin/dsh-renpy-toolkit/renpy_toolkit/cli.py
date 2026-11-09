@@ -548,23 +548,15 @@ def _default_dev_tool_dirs() -> tuple[str, ...]:
 # rpa
 # ---------------------------------------------------------------------------
 def _open_archive(path: str):
-    from .rpa import RenPyArchive, is_rpa
+    """打开一个归档用于读取；目录会自动找 ``*.rpa``，多归档合并成一个视图。
 
-    if os.path.isdir(path):
-        archives = sorted(
-            os.path.join(path, n) for n in os.listdir(path) if n.lower().endswith(".rpa")
-        )
-        if not archives:
-            raise InvalidRequestError(f"{path}: no .rpa file inside")
-        if len(archives) > 1:
-            raise InvalidRequestError(
-                f"{path}: several archives found, pass one explicitly: "
-                + ", ".join(os.path.basename(a) for a in archives)
-            )
-        path = archives[0]
-    if not is_rpa(path):
-        raise InvalidRequestError(f"{path}: not an RPA archive")
-    return RenPyArchive.open(path)
+    Ren'Py 允许一份发行版拆成多个归档（实测有 ``archive.rpa`` +
+    ``archive2.rpa``）。早先这里遇到多个就直接报错，等于把作者的打包方式
+    变成使用者的障碍，所以改成合并读取；写入（pack）仍然只针对单个文件。
+    """
+    from . import rpa
+
+    return rpa.open_archive(path)
 
 
 def cmd_rpa(args: argparse.Namespace, out: _Out) -> int:
@@ -583,8 +575,13 @@ def cmd_rpa(args: argparse.Namespace, out: _Out) -> int:
         else:
             for name in names:
                 out.say(name)
-        out.say(f"\n{len(names)} entrie(s) in "
-                f"{os.path.basename(archive.file or args.archive)}")
+        label = getattr(archive, "file", None) or os.path.basename(os.path.abspath(args.archive))
+        if hasattr(archive, "archives"):
+            label = "%d 个归档（%s）" % (
+                len(archive.archives),
+                ", ".join(os.path.basename(a.file) for a in archive.archives),
+            )
+        out.say(f"\n{len(names)} entrie(s) in {label}")
         return EXIT_OK
 
     if args.action == "extract":
@@ -2018,6 +2015,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         out.warn(f"error: {exc}")
         return EXIT_FINDINGS
     except (InvalidRequestError, ToolkitError) as exc:
+        out.warn(f"error: {exc}")
+        return EXIT_FINDINGS
+    except OSError as exc:
+        # 文件系统类错误（找不到路径、无权限、被占用）不该让用户对着 traceback
+        # 猜。这类错误在 GUI 里也常见，所以给出一句能行动的话。
+        name = getattr(exc, "filename", None)
+        out.warn(f"error: {exc}" + (f"（{name}）" if name else ""))
+        return EXIT_FINDINGS
+    except ValueError as exc:
         out.warn(f"error: {exc}")
         return EXIT_FINDINGS
     except KeyboardInterrupt:  # pragma: no cover

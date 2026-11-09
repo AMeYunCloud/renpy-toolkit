@@ -2,19 +2,23 @@
 
 用法（必须在构建虚拟环境里跑，见 ``--help`` 尾部说明）::
 
-    python tools/build_exe.py                # 同时打 onedir 与 onefile，并自检
-    python tools/build_exe.py --verify       # 只自检（要求产物已存在）
+    python tools/build_exe.py               # 默认只打 onefile，并自检
+    python tools/build_exe.py --both        # onedir + onefile 都打
+    python tools/build_exe.py --verify      # 只自检（要求产物已存在）
     python tools/build_exe.py --onedir-only
-    python tools/build_exe.py --onefile-only
-    python tools/build_exe.py --clean        # 先删旧产物
+    python tools/build_exe.py --clean       # 先删旧产物
 
 产物：
-    dist/exe/onedir/renpy-toolkit/            文件夹版（整目录分发）
-    dist/exe/onefile/renpy-toolkit.exe        单文件版
+    dist/exe/onefile/renpy-toolkit.exe        单文件版（发布形态）
+    dist/exe/onedir/renpy-toolkit/            文件夹版（仅调试用，不发布）
+
+为什么发单文件：文件夹版有一千多个碎片文件，用户拷来拷去容易漏；单文件只有一个
+exe，双击即用。代价是每次启动要把包解到临时目录（约 1–3 秒）。
 
 为什么需要 venv：PyInstaller 会把**它自己所在解释器**的 site-packages 打进包。
-两个可选依赖（fontTools 读字体 cmap、openpyxl 读写 xlsx）必须装在那个解释器里，
-否则 exe 里 "字体覆盖率 / Excel 导出" 两个按钮会静默不可用。
+两个依赖必须装在那个解释器里，否则对应按钮在 exe 里会静默不可用：
+``fontTools``（字体覆盖率）、``openpyxl``（Excel 导出）。界面用系统浏览器打开
+本地服务，不需要 pywebview 之类的原生依赖。
 
 本机既定位置：E:\\Programs\\renpy-toolkit-build\\venv
     uv venv E:\\Programs\\renpy-toolkit-build\\venv --python 3.12
@@ -50,6 +54,22 @@ def _data_arg() -> str:
     return "%s%srenpy_toolkit/data" % (src, os.pathsep)
 
 
+def _optional_flags() -> list[str]:
+    """按"装了的才打进去"追加依赖相关的收集参数。
+
+    界面走的是"本地 HTTP + 系统浏览器 app 窗口"，不依赖 pywebview / pythonnet，
+    所以这里只需要确认两个数据处理库在不在——缺了就在构建时提醒，免得用户
+    双击 exe 之后才发现那两个按钮不能用。
+    """
+    flags: list[str] = []
+    for mod in ("fontTools", "openpyxl"):
+        try:
+            __import__(mod)
+        except Exception:
+            print("[warn] 当前解释器没有 %s：对应功能在 exe 里不可用" % mod)
+    return flags
+
+
 def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
     args = [
         sys.executable,
@@ -59,7 +79,7 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
         "--clean",
         "--windowed",  # 双击不弹黑框；--cli 模式下的输出改写到同目录日志
         "--name",
-        NAME if mode == "onedir" else NAME,
+        NAME,
         "--add-data",
         _data_arg(),
         "--hidden-import",
@@ -78,14 +98,14 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
         os.path.join(WORK, mode),
         "--specpath",
         WORK,
-        ENTRY,
     ]
+    args += _optional_flags()
     if runtime_tmpdir:
-        # onefile 每次启动都要把 17 MB 解包到临时目录。默认用 %TEMP%，普通桌面
-        # 用户没问题；但在令牌受限的环境里引导器建不出目录（它要带自定义 ACL），
-        # 此时用这个参数换一个可写位置，仅作本机验收用，发布形态不带。
-        args.insert(args.index("--windowed") + 1, "--runtime-tmpdir")
-        args.insert(args.index("--windowed") + 2, runtime_tmpdir)
+        # onefile 每次启动都要解包。默认用 %TEMP%，普通桌面用户没问题；但在
+        # 令牌受限的环境里引导器建不出目录（它要带自定义 ACL），此时用这个
+        # 参数换一个可写位置，仅作本机验收用，发布形态不带。
+        args += ["--runtime-tmpdir", runtime_tmpdir]
+    args.append(ENTRY)
     return args
 
 
@@ -148,10 +168,10 @@ def _run_and_capture(exe: str, args: list[str], timeout: int = 300) -> tuple[int
 _ENV_BLOCKED = "Could not create temporary directory"
 
 
-def verify() -> int:
+def verify(modes: tuple[str, ...] = ("onefile",)) -> int:
     ok = True
     env_skipped: list[str] = []
-    for mode in ("onedir", "onefile"):
+    for mode in modes:
         exe = _exe_path(mode)
         if not os.path.isfile(exe):
             print("[verify] %-8s 缺少产物：%s" % (mode, exe))
@@ -167,7 +187,7 @@ def verify() -> int:
               % (mode, exe, size / 1e6, total / 1e6))
 
         # 自检：冻结后包是否完整（模块数、RPA 往返、TL 解析、命令表）
-        # onefile 用短超时：它每次启动都要先解包 17 MB，且在本机若引导器建不出
+        # onefile 用短超时：它每次启动都要先解包，且在本机若引导器建不出
         # 临时目录，进程会卡在解包前不退出——等 300 s 毫无意义。
         code, text = _run_and_capture(exe, ["--selftest"], timeout=45 if mode == "onefile" else 300)
         print("[verify] %-8s --selftest 退出码 %d" % (mode, code))
@@ -200,10 +220,15 @@ def verify() -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="打 Windows exe（PyInstaller）")
+    parser = argparse.ArgumentParser(
+        description="打 Windows exe（PyInstaller）",
+        epilog="必须在装了 pyinstaller/openpyxl/fonttools 的构建虚拟环境里跑：\n"
+               "  E:\\Programs\\renpy-toolkit-build\\venv\\Scripts\\python.exe tools\\build_exe.py",
+    )
     parser.add_argument("--verify", action="store_true", help="只自检已有产物")
+    parser.add_argument("--both", action="store_true", help="onedir 与 onefile 都打")
     parser.add_argument("--onedir-only", action="store_true")
-    parser.add_argument("--onefile-only", action="store_true")
+    parser.add_argument("--onefile-only", action="store_true", help="（默认就是它）")
     parser.add_argument("--clean", action="store_true", help="先删 dist/exe 与工作目录")
     parser.add_argument("--verbose", action="store_true", help="打印随附的诊断信息")
     parser.add_argument("--runtime-tmpdir", metavar="DIR", default=None,
@@ -236,16 +261,16 @@ def main(argv: list[str] | None = None) -> int:
                 print("[clean] %s" % path)
                 shutil.rmtree(path)
 
+    modes: tuple[str, ...] = ("onefile",)
     if not args.verify:
         if args.onedir_only:
-            build("onedir", args.runtime_tmpdir)
-        elif args.onefile_only:
-            build("onefile", args.runtime_tmpdir)
-        else:
-            build("onedir", args.runtime_tmpdir)
-            build("onefile", args.runtime_tmpdir)
+            modes = ("onedir",)
+        elif args.both:
+            modes = ("onedir", "onefile")
+        for mode in modes:
+            build(mode, args.runtime_tmpdir)
 
-    return verify()
+    return verify(modes if not args.verify else ("onefile",))
 
 
 if __name__ == "__main__":
