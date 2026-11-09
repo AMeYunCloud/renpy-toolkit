@@ -26,14 +26,15 @@ A toolkit for Ren'Py authoring and localization. Its core capability is generati
 | 耗时 | 19.6 秒 |
 | 覆盖率 | 与一份已上线成品译料对比，唯一原文串覆盖 93.0% |
 
-### 四种使用形态
+### 三条独立的发行线
 
-| 形态 | 适合 | 怎么用 |
+三份产物各自独立：exe 不依赖插件与 skill，插件与 skill 也不含、不调用 exe。
+
+| 线 | 适合 | 怎么用 |
 |---|---|---|
-| **Windows exe** | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
-| **一键包** | 有 Python、想留在命令行 | 解压后跑 `renpy-toolkit.cmd`，或 `python renpy-toolkit.py` |
-| **pip 安装** | 已经管着 Python 环境 | `pip install renpy-toolkit`（含 Excel/字体功能装 `[all]`） |
+| **插件 / pip** | 有 Python、想留在命令行 | `pip install renpy-toolkit`（含 Excel/字体装 `[all]`）；或解压便携 zip 跑 `renpy-toolkit.cmd` |
 | **Agent skill** | 给 AI 助手用 | 把 `skills/renpy-toolkit/` 放进 skill 目录 |
+| **Windows exe** | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
 
 ### 主要能力
 
@@ -101,14 +102,16 @@ need sources. Measured on a release with 50 `.rpyc` files:
 | Duration | 19.6 s |
 | Coverage | 93.0% of unique source strings, compared against a shipping translation |
 
-### Four forms
+### Three independent release lines
 
-| Form | For | Start with |
+The three artifacts stand alone: the exe does not depend on the plugin or the skill,
+and neither of them contains or invokes the exe.
+
+| Line | For | Start with |
 |---|---|---|
-| **Windows exe** | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
-| **Portable zip** | Python available, prefer the CLI | Run `renpy-toolkit.cmd`, or `python renpy-toolkit.py` |
-| **pip** | Managed Python environment | `pip install renpy-toolkit` (`[all]` adds Excel and font support) |
+| **Plugin / pip** | Python available, prefer the CLI | `pip install renpy-toolkit` (`[all]` adds Excel and font support); or unzip the portable zip and run `renpy-toolkit.cmd` |
 | **Agent skill** | AI assistants | Drop `skills/renpy-toolkit/` into the skills directory |
+| **Windows exe** | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
 
 ### Capabilities
 

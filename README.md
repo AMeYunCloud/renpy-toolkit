@@ -22,14 +22,18 @@ English: [`README.en.md`](README.en.md)
 renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
-│       ├── renpy_toolkit/  28 个模块（含 gui.py：exe 用的图形界面）
-│       ├── tests/          542 个 unittest 用例
+│       ├── renpy_toolkit/  27 个模块（纯命令行，无界面代码）
+│       ├── tests/          519 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
 ├── skills/renpy-toolkit/   同功能的 agent skill（DSH 插件形态下由插件自动注册）
 │   ├── SKILL.md            按任务选路表 + 硬规则
 │   └── scripts/rptk.py     启动器（不依赖 cwd 与安装位置）
+├── exe/                    图形界面（独立发行线，不随包分发）
+│   ├── gui.py              本地 HTTP 服务 + 系统浏览器窗口
+│   ├── ui/index.html       界面
+│   └── tests/              界面的纯逻辑测试（23 例）
 ├── docs/                   参考笔记（引擎事实、格式规范）
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
@@ -55,16 +59,16 @@ renpy-toolkit/
 用法见 [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md)（工具包）与
 [`skills/renpy-toolkit/SKILL.md`](skills/renpy-toolkit/SKILL.md)（skill）。
 
-## 安装
+## 三条独立的发行线
 
-四种形态，按需要选一种：
+三份产物各自独立：**exe 不依赖插件与 skill，插件与 skill 也不含、不调用 exe**。
 
-| 形态 | 适合谁 | 怎么开始 |
-| --- | --- | --- |
-| **Windows exe**（图形界面） | 只想点按钮，不碰命令行 | 解压 `renpy-toolkit-exe-<version>.zip`，把文件夹放到游戏目录旁边，双击 `renpy-toolkit.exe` |
-| **一键包**（便携 zip） | 只想用，不想碰 Python 工程 | 解压，双击 `自检.cmd` 确认可用，然后 `python renpy-toolkit.py --help` |
-| **pip 安装** | 想当命令行工具用 | `pip install .`，得到 `renpy-toolkit` 命令 |
-| **agent skill** | 让 AI 助手自己会做汉化 | 把 `skills/renpy-toolkit/` 放进 skills 目录 |
+| 线 | 产物 | 适合谁 | 怎么开始 |
+| --- | --- | --- | --- |
+| **插件 / pip** | `renpy-toolkit` 命令 + 便携 zip（`renpy-toolkit-<version>.zip`） | 想在命令行或 DSH 插件里用 | `pip install .`（含 Excel/字体功能装 `[all]`）；或解压便携 zip 双击 `自检.cmd` 后 `python renpy-toolkit.py --help` |
+| **agent skill** | `skills/renpy-toolkit/` | 让 AI 助手自己会做汉化 | 把整个目录放进 skills 目录 |
+| **Windows exe** | `renpy-toolkit-exe-<version>.zip` | 只想点按钮，不碰命令行 | 解压到游戏目录旁边，双击 `renpy-toolkit.exe` |
+
 
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
@@ -73,9 +77,10 @@ pip install .              # 得到 renpy-toolkit 命令
 pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl（XLSX 读写）
 ```
 
-不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。四种形态背后的代码是同一份，
-默认依赖仅标准库；`fontTools` 与 `openpyxl` 是可选能力，缺失时会给出可读的 `DependencyError`
-而不是 import 失败。唯一例外是 **exe**：它把这两人可选依赖一起打包，所以那两个功能在 exe 里开箱可用。
+不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。插件与 skill 走的是
+同一份 Python 代码，默认依赖仅标准库；`fontTools` 与 `openpyxl` 是可选能力，缺失时会给出可读的
+`DependencyError` 而不是 import 失败。**exe 是另一条线**：源码在 `exe/`，由 `tools/build_exe.py`
+把这两个可选依赖一起打包，所以那两个功能在 exe 里开箱可用；反过来，插件与 skill 不含也不调用界面代码。
 
 ### Windows exe（图形界面）
 
@@ -84,6 +89,8 @@ pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl�
 ```
 dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件，双击即用
 ```
+
+这条线与其他两条完全独立：界面源码在 `exe/`，产物里不含界面代码，插件与 skill 也从不调用 exe。
 
 界面是一个深色网页，由 exe 起一个**只监听本机 127.0.0.1** 的小服务，再用系统自带的
 Edge/Chrome 以「app 窗口」模式打开（没有地址栏，看起来就是个桌面程序；不联网、
@@ -261,7 +268,7 @@ wrote 53 file(s)            耗时 19.6s
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 542 passed
+python -m unittest discover -s tests -t tests -q     # 519 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -289,7 +296,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 542 tests
+python -m unittest discover -s tests -t tests -q     # 519 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

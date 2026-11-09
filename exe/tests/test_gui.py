@@ -1,16 +1,28 @@
 """gui 的纯逻辑部分测试（不启动窗口）。
 
-界面本身不做自动化测试：tkinter 的断言价值低、跑起来还要显示器。但"点哪个
+界面本身不做自动化测试：窗口的断言价值低、跑起来还要显示器。但"点哪个
 按钮跑哪条命令"必须被钉住——那是真正会改用户文件的部分。
+
+本目录属于仓库顶层 `exe/`，与 `plugin/dsh-renpy-toolkit` 分开：exe 会 import
+`renpy_toolkit`，所以这里先把插件包目录塞进 sys.path，再 import 同级的 `gui`。
+运行：`python -m unittest discover -s exe/tests -t exe/tests`
 """
 
 from __future__ import annotations
 
 import json
 import os
+import sys
 import unittest
 
-from renpy_toolkit import gui
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_EXE = os.path.dirname(_HERE)
+_ROOT = os.path.dirname(_EXE)
+for _path in (os.path.join(_ROOT, "plugin", "dsh-renpy-toolkit"), _EXE):
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
+
+import gui  # noqa: E402  （必须在 sys.path 调整之后）
 
 ROOT = os.path.join("C:\\", "games", "TheGame")
 TL = os.path.join(ROOT, "game", "tl", "chinese")

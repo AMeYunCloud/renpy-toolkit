@@ -60,8 +60,8 @@ def main(argv: list[str] | None = None) -> int:
                 handle.close()
 
     try:
-        from renpy_toolkit import gui
-    except Exception as exc:  # 极端环境：包内 gui 都导入不了（缺失文件、权限）
+        import gui
+    except Exception as exc:  # 极端环境：gui 模块都导入不了（缺失文件、权限）
         handle = _ensure_streams()
         try:
             sys.stderr.write(

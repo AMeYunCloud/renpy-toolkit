@@ -1,14 +1,14 @@
 """图形界面（exe 分发形态专用）：本地 HTTP + 浏览器 app 窗口。
 
-界面是一份本地 HTML（``data/ui/index.html``），由本进程内的 HTTP 服务提供，
-再用系统的 Edge/Chrome 以 ``--app`` 模式开一个无地址栏窗口。这样界面能做成
-网页的样子，而**不需要把 pythonnet / WebView2 绑进 exe**——那套东西在
-PyInstaller 单文件包里会因为 CLR 程序集解析失败而打不开窗口。
+本文件属于**仓库顶层 `exe/`**，不随 `renpy_toolkit` 包分发——插件与 skill
+都只用命令行，从不 import 它。界面是一份本地 HTML（同目录 `ui/index.html`），
+由本进程内的 HTTP 服务提供，再用系统的 Edge/Chrome 以 ``--app`` 模式开一个
+无地址栏窗口。这样界面能做成网页的样子，而**不需要把 pythonnet / WebView2
+绑进 exe**——那套东西在 PyInstaller 单文件包里会因为 CLR 程序集解析失败而
+打不开窗口。
 
 所有操作仍然只转成对 :func:`renpy_toolkit.cli.main` 的调用，界面与命令行
 行为永远一致（含 ``--write`` 语义、备份模式、退出码）。
-
-**不要**把 ``gui`` 加进 ``__all__``：界面相关代码只在 `--gui`/双击时才用到。
 """
 
 from __future__ import annotations
@@ -382,7 +382,11 @@ def base_dir() -> str:
 
 
 def html_path() -> str:
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "ui", "index.html")
+    """界面 HTML 的位置：冻结后取 PyInstaller 的解包目录，开发时取本文件旁的 ui/。"""
+    packed = getattr(sys, "_MEIPASS", None)
+    if packed:
+        return os.path.join(packed, "ui", "index.html")
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 
 
 def crash_log_path() -> str:

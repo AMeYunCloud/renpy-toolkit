@@ -14,6 +14,23 @@ toolkit: every rule the code enforces is traced back to an engine fact or a
 format specification, so the documents can be used to re-verify the behaviour
 after a Ren'Py upgrade.
 
+### Changed
+
+**Three independent release lines**
+
+- The GUI moved out of the Python package: `renpy_toolkit/gui.py` and
+  `renpy_toolkit/data/ui/index.html` now live in the repository-level `exe/`
+  (`exe/gui.py`, `exe/ui/index.html`, `exe/tests/`). The package dropped from 28
+  to 27 modules and its suite from 542 to 519 cases; the GUI's 23 pure-logic
+  tests run separately with `python -m unittest discover -s exe\tests -t exe\tests`.
+- Consequence, and the reason for the move: `dist/plugin`, the portable zip and
+  the skill package no longer contain any UI code, and neither the plugin nor the
+  skill contains or invokes the exe. The exe is built only by
+  `tools/build_exe.py`, which now points `--add-data` at `exe/ui` and puts `exe/`
+  on `--paths`.
+- The three artifacts are therefore released independently: plugin/pip, agent
+  skill, and the Windows exe.
+
 ### Added
 
 **Translation scaffolding**

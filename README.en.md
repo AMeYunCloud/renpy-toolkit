@@ -24,11 +24,15 @@ No upstream code is imported; every rule is traced back to an engine fact and ci
 renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit — the single source of truth (self-contained)
-│       ├── renpy_toolkit/  28 modules (including gui.py, the exe UI)
-│       ├── tests/          542 unittest cases
+│       ├── renpy_toolkit/  27 modules (pure CLI, no UI code)
+│       ├── tests/          519 unittest cases
 │       ├── data/ui-terms.tsv   built-in generic UI glossary (167 entries)
 │       └── README.md       full module reference, usage, design constraints
 ├── skills/renpy-toolkit/   the same capability as an agent skill
+├── exe/                    the GUI (separate release line, not shipped in the package)
+│   ├── gui.py              local HTTP server + system-browser window
+│   ├── ui/index.html       the interface
+│   └── tests/              23 pure-logic tests for the GUI
 ├── docs/                   reference notes (engine facts, format specs)
 ├── tools/                  build_release / build_portable / build_exe / check_*
 └── dist/                   build output (not committed)
@@ -38,16 +42,16 @@ renpy-toolkit/
 `tools/build_*.py` so the installed copy and the released copy can be compared
 byte for byte.
 
-## Install
+## Three independent release lines
 
-Four forms — pick one:
+The three artifacts stand alone: **the exe does not depend on the plugin or the
+skill, and neither of them contains or invokes the exe.**
 
-| Form | For | Start with |
-| --- | --- | --- |
-| **Windows exe** (GUI) | Clicking buttons, no command line | Unzip next to the game folder, double-click `renpy-toolkit.exe` |
-| **Portable zip** | No Python project setup | Unzip, run the self-check `.cmd`, then `python renpy-toolkit.py --help` |
-| **pip** | Use it as a CLI | `pip install .` → the `renpy-toolkit` command |
-| **agent skill** | Let an AI assistant do the localization | Drop `skills/renpy-toolkit/` into your skills directory |
+| Line | Artifact | For | Start with |
+| --- | --- | --- | --- |
+| **Plugin / pip** | `renpy-toolkit` command + portable zip | Command line or the DSH plugin | `pip install .` (add `[all]` for Excel/fonts); or unzip the portable zip and run `python renpy-toolkit.py --help` |
+| **agent skill** | `skills/renpy-toolkit/` | Let an AI assistant do the localization | Drop the whole directory into your skills directory |
+| **Windows exe** | `renpy-toolkit-exe-<version>.zip` | Clicking buttons, no command line | Unzip next to the game folder and double-click `renpy-toolkit.exe` |
 
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
@@ -58,12 +62,17 @@ pip install '.[all]'       # adds fontTools (font coverage) and openpyxl (XLSX)
 
 It also runs without installing anything:
 `cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`.
-All four forms share one codebase and need only the standard library by default;
-`fontTools` and `openpyxl` are optional and report a readable `DependencyError`
-instead of failing at import. The one exception is the **exe**, which bundles both,
-so those two features work out of the box there.
+The plugin and the skill share one codebase and need only the standard library by
+default; `fontTools` and `openpyxl` are optional and report a readable
+`DependencyError` instead of failing at import. The **exe** is a separate line and
+bundles both, so those two features work out of the box there — and conversely the
+packages never contain or call the UI code.
 
 ### Windows exe
+
+This line is fully independent of the other two: the interface source lives in
+`exe/`, the packages contain no UI code, and neither the plugin nor the skill ever
+invokes the exe.
 
 The window is a small local HTTP server plus your system browser opened in
 `--app` mode — no WebView2, no native bindings. On start it scans the exe's own
@@ -157,7 +166,7 @@ Skill: [`skills/renpy-toolkit/SKILL.md`](skills/renpy-toolkit/SKILL.md).
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 542 passed
+python -m unittest discover -s tests -t tests -q     # 519 passed
 ```
 
 Build and verify the release artifacts:

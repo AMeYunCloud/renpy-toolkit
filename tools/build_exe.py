@@ -35,6 +35,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN = os.path.join(ROOT, "plugin", "dsh-renpy-toolkit")
+EXE_DIR = os.path.join(ROOT, "exe")
 ENTRY = os.path.join(ROOT, "tools", "exe_entry.py")
 WORK = os.path.join(ROOT, "工作区域", "exe-build")
 OUT = os.path.join(ROOT, "dist", "exe")
@@ -42,7 +43,7 @@ NAME = "renpy-toolkit"
 
 
 def _data_arg() -> str:
-    """``--add-data`` 的参数。
+    """``--add-data`` 的参数（包内数据：内置 UI 术语表）。
 
     分隔符用 ``;``（Windows），目标路径用正斜杠：冒号在这里是分隔符而不是
     盘符，写 ``C:\\...`` 会被当成 ``SOURCE:DEST`` 的另一半，PyInstaller 直接
@@ -52,6 +53,19 @@ def _data_arg() -> str:
     if not os.path.isdir(src):
         raise SystemExit("找不到数据目录：%s" % src)
     return "%s%srenpy_toolkit/data" % (src, os.pathsep)
+
+
+def _ui_data_arg() -> str:
+    """界面 HTML 的 ``--add-data`` 参数。
+
+    界面源码在仓库顶层 ``exe/ui/``，不属于 ``renpy_toolkit`` 包——插件与 skill
+    只用命令行，不该把图形界面代码一起分发。冻结时落到 ``<_MEIPASS>/ui/``，
+    对应 ``gui.html_path()`` 的 ``_MEIPASS`` 分支。
+    """
+    src = os.path.join(EXE_DIR, "ui")
+    if not os.path.isdir(src):
+        raise SystemExit("找不到界面目录：%s" % src)
+    return "%s%sui" % (src, os.pathsep)
 
 
 def _optional_flags() -> list[str]:
@@ -82,8 +96,10 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
         NAME,
         "--add-data",
         _data_arg(),
+        "--add-data",
+        _ui_data_arg(),
         "--hidden-import",
-        "renpy_toolkit.gui",
+        "gui",
         "--collect-submodules",
         "renpy_toolkit",
         "--collect-submodules",
@@ -92,6 +108,8 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
         "openpyxl",
         "--paths",
         PLUGIN,
+        "--paths",
+        EXE_DIR,
         "--distpath",
         os.path.join(OUT, mode),
         "--workpath",
@@ -191,7 +209,14 @@ def verify(modes: tuple[str, ...] = ("onefile",)) -> int:
         # 临时目录，进程会卡在解包前不退出——等 300 s 毫无意义。
         code, text = _run_and_capture(exe, ["--selftest"], timeout=45 if mode == "onefile" else 300)
         print("[verify] %-8s --selftest 退出码 %d" % (mode, code))
-        if code != 0 and (_ENV_BLOCKED in text or (mode == "onefile" and code == 124)):
+        # onefile 引导器要建一个带自定义安全描述符的临时目录，令牌受限时会被拒。
+        # 三种表现都算环境受限：打印了那句错误、超时 124、或进程在 Python 起来
+        # 之前就死掉（退出码为负 / 0xFFFFFFFF 且没有任何输出——包体有问题时会
+        # 留下 traceback 或至少半行自检文本）。
+        env_blocked = _ENV_BLOCKED in text
+        if mode == "onefile" and not env_blocked:
+            env_blocked = code in (124,) or (code != 0 and not text.strip())
+        if code != 0 and env_blocked:
             # onefile 引导器要建一个带自定义安全描述符的临时目录；令牌受限时会
             # 被拒绝（普通桌面用户不会）。这是环境问题，不是包体问题：
             # 用 --runtime-tmpdir 指向可写目录重打同一份代码即可跑通。
