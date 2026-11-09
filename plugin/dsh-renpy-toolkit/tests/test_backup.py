@@ -208,3 +208,66 @@ class TestBackupRoot(unittest.TestCase):
             backup.backup_root(path),
             os.path.abspath(os.path.join(os.sep, "games", "x", "TL")),
         )
+
+
+@unittest.skipUnless(gitbackup.available(), "git is not installed")
+class TestTreeAndRepoLocation(_ModeCase):
+    """``RTK_BACKUP_DIR`` must move the repository, never the work tree."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.previous_dir = os.environ.pop("RTK_BACKUP_DIR", None)
+        self.addCleanup(self._restore_dir)
+
+    def _restore_dir(self) -> None:
+        os.environ.pop("RTK_BACKUP_DIR", None)
+        if self.previous_dir is not None:
+            os.environ["RTK_BACKUP_DIR"] = self.previous_dir
+
+    def _tl_dir(self) -> str:
+        tl = os.path.join(self.root, "game", "tl", "chinese")
+        os.makedirs(tl, exist_ok=True)
+        return tl
+
+    def test_directory_argument_resolves_to_the_tl_tree(self) -> None:
+        tl = self._tl_dir()
+        self.assertEqual(backup.tree_of(tl), os.path.abspath(
+            os.path.join(self.root, "game", "tl")))
+        self.assertEqual(backup.tree_of(os.path.join(self.root, "game", "tl")),
+                         os.path.abspath(os.path.join(self.root, "game", "tl")))
+
+    def test_repository_moves_but_work_tree_stays(self) -> None:
+        tl = self._tl_dir()
+        outside = os.path.join(self.root, "data")
+        os.environ["RTK_BACKUP_DIR"] = outside
+        store = backup.store_for(backup.tree_of(tl))
+        self.assertEqual(store.root, os.path.abspath(os.path.join(self.root, "game", "tl")))
+        self.assertTrue(store.git_dir.startswith(os.path.abspath(outside) + os.sep))
+        self.assertTrue(store.git_dir.endswith(gitbackup.DEFAULT_DIRNAME))
+
+    def test_keep_records_outside_the_work_tree(self) -> None:
+        # A write through ``keep`` must not fail just because the repository
+        # lives somewhere else: ``_tracked`` validates against the work tree.
+        tl = self._tl_dir()
+        target = os.path.join(tl, "a.rpy")
+        self._write(target, "old")
+        os.environ["RTK_BACKUP_DIR"] = os.path.join(self.root, "data")
+        backup.set_mode(backup.MODE_GIT)
+        rev = backup.keep(target, b"old")
+        self.assertTrue(rev, "keep() should have recorded a snapshot")
+        self.assertFalse(os.path.isdir(os.path.join(tl, gitbackup.DEFAULT_DIRNAME)),
+                         "the repository must not land in the game tree")
+
+    def test_snapshot_command_restores_into_the_work_tree(self) -> None:
+        tl = self._tl_dir()
+        target = os.path.join(tl, "b.rpy")
+        self._write(target, "before")
+        outside = os.path.join(self.root, "data")
+        os.environ["RTK_BACKUP_DIR"] = outside
+        store = backup.store_for(backup.tree_of(tl))
+        snapshot = store.save([target], message="t")
+        self.assertIsNotNone(snapshot)
+        self._write(target, "after")
+        store.restore(snapshot.rev)
+        self.assertEqual(self._read(target), b"before")
+        self.assertFalse(os.path.isdir(os.path.join(tl, gitbackup.DEFAULT_DIRNAME)))

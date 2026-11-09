@@ -1193,7 +1193,9 @@ def cmd_tl_backup(args: argparse.Namespace, out: _Out) -> int:
     root = os.path.abspath(args.tl_dir)
     if not os.path.isdir(root):
         raise InvalidRequestError(f"{args.tl_dir} 不是目录")
-    store = gitbackup.GitBackups(root)
+    # 走 store_for：工作树是译文目录（restore 要写回那里），仓库位置由
+    # RTK_BACKUP_DIR 决定 —— 图形界面靠它把快照收进 exe 旁边的数据目录。
+    store = backup.store_for(backup.tree_of(root))
 
     if action == "list":
         if not store.exists():

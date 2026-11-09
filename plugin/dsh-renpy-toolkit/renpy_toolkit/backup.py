@@ -63,8 +63,11 @@ __all__ = [
     "get_mode",
     "git_required",
     "keep",
+    "repo_parent",
     "reset_mode",
     "set_mode",
+    "store_for",
+    "tree_of",
 ]
 
 MODE_BAK = "bak"
@@ -181,39 +184,67 @@ def _git_available() -> bool:
     return gitbackup.available()
 
 
-def backup_root(path: str) -> str:
-    """Pick the directory a Git backup of *path* should cover.
+def tree_of(path: str) -> str:
+    """The translation tree a *path* belongs to.
 
     Walking up to the nearest ``tl`` directory keeps one shadow repository per
     translation tree, so a snapshot taken while editing one language can also
-    restore the others. Without a ``tl`` ancestor the file's own directory is
+    restore the others. Without a ``tl`` ancestor the path's own directory is
     used, which is still a sane unit for a one-off ``.rpy`` edit.
 
-    ``RTK_BACKUP_DIR`` overrides the location: the repository is then created
-    inside that directory, one subdirectory per translation tree. The GUI uses
-    it so that everything the tool writes lives in a single folder beside the
-    exe instead of dropping ``.renpy-toolkit.git`` into the game the user is
-    translating.
+    *path* may be a file or a directory. ``tl backup`` passes the translation
+    directory itself, so a directory is treated as the starting point instead
+    of its parent -- otherwise ``tl/chinese`` would resolve to ``game/`` and
+    two languages would share one repository.
     """
-    directory = os.path.dirname(os.path.abspath(path)) or os.getcwd()
-    probe = directory
-    found = None
+    start = os.path.abspath(path)
+    if not os.path.isdir(start):
+        start = os.path.dirname(start) or os.getcwd()
+    probe = start
     while True:
         if os.path.basename(probe).lower() == "tl":
-            found = probe
-            break
+            return probe
         parent = os.path.dirname(probe)
         if parent == probe:
-            break
+            return start
         probe = parent
-    if found is None:
-        found = directory
 
+
+def repo_parent(tree: str) -> str:
+    """Directory that holds the shadow repository for *tree*.
+
+    ``RTK_BACKUP_DIR`` overrides the location, one subdirectory per tree (named
+    by a hash of the tree path). The GUI uses it so that everything the tool
+    writes lives in a single folder beside the exe instead of dropping
+    ``.renpy-toolkit.git`` into the game the user is translating.
+    """
+    tree = os.path.abspath(tree)
     override = os.environ.get("RTK_BACKUP_DIR")
     if override:
-        digest = hashlib.sha1(os.path.abspath(found).encode("utf-8")).hexdigest()[:12]
+        digest = hashlib.sha1(tree.encode("utf-8")).hexdigest()[:12]
         return os.path.join(os.path.abspath(override), digest)
-    return found
+    return tree
+
+
+def backup_root(path: str) -> str:
+    """Directory a Git backup of *path* covers. Kept as the public entry name."""
+    return repo_parent(tree_of(path))
+
+
+def store_for(tree: str):
+    """A :class:`gitbackup.GitBackups` for *tree*.
+
+    The work tree is always the translation tree -- ``restore`` writes files
+    relative to it -- while the repository itself may sit elsewhere when
+    ``RTK_BACKUP_DIR`` is set.
+    """
+    from . import gitbackup
+
+    tree = os.path.abspath(tree)
+    parent = repo_parent(tree)
+    if parent == tree:
+        return gitbackup.GitBackups(tree)
+    return gitbackup.GitBackups(tree, git_dir=os.path.join(parent, gitbackup.DEFAULT_DIRNAME))
 
 
 def keep(dest: str, previous: bytes | None = None, *, message: str = "") -> str | None:
@@ -273,8 +304,7 @@ def keep(dest: str, previous: bytes | None = None, *, message: str = "") -> str 
                         break
                     dst.write(chunk)
         return target
-    root = backup_root(dest)
-    store = gitbackup.GitBackups(root)
+    store = store_for(tree_of(dest))
     snapshot = store.save([dest], message=message or f"before writing {os.path.basename(dest)}")
     if snapshot is None:
         # Content identical to the last snapshot: nothing new to record.
@@ -284,6 +314,4 @@ def keep(dest: str, previous: bytes | None = None, *, message: str = "") -> str 
 
 def restore_list(root: str, *, limit: int = 20):
     """Convenience passthrough used by the CLI."""
-    from . import gitbackup
-
-    return gitbackup.GitBackups(root).list(limit=limit)
+    return store_for(tree_of(root)).list(limit=limit)

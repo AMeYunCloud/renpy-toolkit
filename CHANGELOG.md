@@ -121,6 +121,11 @@ after a Ren'Py upgrade.
   + `read-tree` + `commit-tree` without touching an index the user can see.
 - `tl backup list` / `show` / `restore` / `prune` / `size`. Snapshots store
   complete trees, so any revision restores whole rather than replaying diffs.
+- `RTK_BACKUP_DIR` moves the repository without moving the work tree, and it is
+  now honoured by the `tl backup` commands as well as by per-write backups. The
+  GUI sets it so snapshots of a game the user only has read access to land in
+  `renpy-toolkit-数据\备份\` beside the exe instead of failing on a read-only
+  `game/tl`.
 - Without git, `--backup-mode git` degrades to `bak` and says so on stderr; the
   command still finishes with its usual exit code. `.bak` is a usable backup and
   asking for a snapshot is no reason to block a translation edit on a missing
