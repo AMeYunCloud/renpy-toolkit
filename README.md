@@ -22,8 +22,8 @@ English: [`README.en.md`](README.en.md)
 renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
-│       ├── renpy_toolkit/  27 个模块（纯命令行，无界面代码）
-│       ├── tests/          519 个 unittest 用例
+│       ├── renpy_toolkit/  28 个模块（纯命令行，无界面代码）
+│       ├── tests/          531 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
@@ -272,7 +272,7 @@ wrote 53 file(s)            耗时 19.6s
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 519 passed
+python -m unittest discover -s tests -t tests -q     # 531 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -300,7 +300,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 519 tests
+python -m unittest discover -s tests -t tests -q     # 531 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

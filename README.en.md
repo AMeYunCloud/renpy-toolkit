@@ -24,8 +24,8 @@ No upstream code is imported; every rule is traced back to an engine fact and ci
 renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit — the single source of truth (self-contained)
-│       ├── renpy_toolkit/  27 modules (pure CLI, no UI code)
-│       ├── tests/          519 unittest cases
+│       ├── renpy_toolkit/  28 modules (pure CLI, no UI code)
+│       ├── tests/          531 unittest cases
 │       ├── data/ui-terms.tsv   built-in generic UI glossary (167 entries)
 │       └── README.md       full module reference, usage, design constraints
 ├── skills/renpy-toolkit/   the same capability as an agent skill
@@ -173,7 +173,7 @@ Skill: [`skills/renpy-toolkit/SKILL.md`](skills/renpy-toolkit/SKILL.md).
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 519 passed
+python -m unittest discover -s tests -t tests -q     # 531 passed
 ```
 
 Build and verify the release artifacts:

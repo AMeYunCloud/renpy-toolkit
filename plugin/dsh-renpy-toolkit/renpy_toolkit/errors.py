@@ -143,6 +143,10 @@ class ProjectError(ToolkitError):
     """A game project (or a path inside one) is not usable."""
 
 
+class NotARenPyGameError(ProjectError):
+    """目标目录不是 Ren'Py 游戏（没有 game/、没有 RPC2 脚本或 RPA 归档等证据）。"""
+
+
 #: Raised by :mod:`scaffold` when a project cannot be generated at the
 #: requested location. Named separately so ``except ScaffoldError`` reads well
 #: at call sites that only build projects.

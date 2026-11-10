@@ -103,6 +103,9 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
         _ui_data_arg(),
         "--hidden-import",
         "gui",
+        # tkinter 只在阻断式提示（危险路径 / 已运行）里按需 import，静态扫描看不到。
+        "--hidden-import",
+        "tkinter",
         "--collect-submodules",
         "renpy_toolkit",
         "--collect-submodules",
@@ -122,9 +125,12 @@ def _common_args(mode: str, runtime_tmpdir: str | None = None) -> list[str]:
     ]
     args += _optional_flags()
     if runtime_tmpdir:
-        # onefile 每次启动都要解包。默认用 %TEMP%，普通桌面用户没问题；但在
-        # 令牌受限的环境里引导器建不出目录（它要带自定义 ACL），此时用这个
-        # 参数换一个可写位置，仅作本机验收用，发布形态不带。
+        # onefile 每次启动都要解包，默认落在 %TEMP%。但引导器是用「带自定义
+        # 安全描述符」的方式建这个目录的，在部分机器上（受控文件夹访问、组策略、
+        # 精简版系统）会直接失败并弹出
+        #     Could not create temporary directory!
+        # 这类失败在第一版发布里真实出现过。改成解包到 exe 自己所在目录
+        # （默认值 "."），就不依赖 %TEMP% 的 ACL 了。
         args += ["--runtime-tmpdir", runtime_tmpdir]
     args.append(ENTRY)
     return args
@@ -296,7 +302,12 @@ def main(argv: list[str] | None = None) -> int:
         elif args.both:
             modes = ("onedir", "onefile")
         for mode in modes:
-            build(mode, args.runtime_tmpdir)
+            # onefile 默认解包到 exe 旁边的数据目录里，既躲开 %TEMP% 的 ACL，
+            # 也保证 exe 所在文件夹里除 exe 本身外只有一个 `renpy-toolkit-数据\`。
+            rt = args.runtime_tmpdir
+            if rt is None and mode == "onefile":
+                rt = os.path.join(".", "renpy-toolkit-数据", "临时", "运行")
+            build(mode, rt)
 
     return verify(modes if not args.verify else ("onefile",))
 

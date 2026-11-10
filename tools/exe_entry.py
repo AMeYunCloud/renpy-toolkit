@@ -16,7 +16,22 @@ from __future__ import annotations
 import os
 import sys
 
+DATA_DIR_NAME = "renpy-toolkit-数据"
 LOG_NAME = "renpy-toolkit-cli.log"
+
+
+def _log_dir() -> str:
+    """所有输出都收进 exe 旁边的数据目录，保持 exe 所在文件夹整洁。"""
+    try:
+        base = os.path.dirname(os.path.abspath(sys.executable))
+    except Exception:
+        base = os.getcwd()
+    path = os.path.join(base, DATA_DIR_NAME, "日志")
+    try:
+        os.makedirs(path, exist_ok=True)
+    except OSError:
+        return base
+    return path
 
 
 def _ensure_streams():
@@ -28,11 +43,7 @@ def _ensure_streams():
     """
     handle = None
     if sys.stdout is None or sys.stderr is None:
-        try:
-            base = os.path.dirname(os.path.abspath(sys.executable))
-        except Exception:
-            base = os.getcwd()
-        handle = open(os.path.join(base, LOG_NAME), "w", encoding="utf-8", errors="replace")
+        handle = open(os.path.join(_log_dir(), LOG_NAME), "w", encoding="utf-8", errors="replace")
         sys.stdout = handle
         sys.stderr = handle
     for stream in (sys.stdout, sys.stderr):
@@ -100,11 +111,7 @@ def _install_crash_hook() -> None:
     def hook(exc_type, exc, tb):
         import traceback
 
-        try:
-            base = os.path.dirname(os.path.abspath(sys.executable))
-        except Exception:
-            base = os.getcwd()
-        path = os.path.join(base, "renpy-toolkit-窗口错误.log")
+        path = os.path.join(_log_dir(), "renpy-toolkit-窗口错误.log")
         try:
             with open(path, "w", encoding="utf-8") as fh:
                 fh.write("Ren'Py 汉化工具包 启动失败\n\n")
@@ -115,5 +122,56 @@ def _install_crash_hook() -> None:
     sys.excepthook = hook
 
 
+def _test_open(url: str) -> int:
+    """诊断用：逐个尝试打开 URL 的方式，打印各自结果（写到数据目录日志）。"""
+    import ctypes
+    import subprocess
+    import time
+
+    lines = []
+
+    def log(msg: str) -> None:
+        lines.append(msg)
+
+    log("url = %s" % url)
+    try:
+        rc = ctypes.windll.shell32.ShellExecuteW(None, "open", url, None, None, 1)
+        log("ShellExecuteW -> %s" % rc)
+    except Exception as exc:  # noqa: BLE001
+        log("ShellExecuteW raised %r" % exc)
+    time.sleep(6)
+    try:
+        proc = subprocess.Popen(
+            ["cmd", "/c", "start", "", url],
+            close_fds=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        log("cmd start(no window) rc=%s" % proc.wait(timeout=15))
+    except Exception as exc:  # noqa: BLE001
+        log("cmd start raised %r" % exc)
+    time.sleep(6)
+    try:
+        proc = subprocess.Popen(["cmd", "/c", "start", "", url])
+        log("cmd start(inherit) rc=%s" % proc.wait(timeout=15))
+    except Exception as exc:  # noqa: BLE001
+        log("cmd start(inherit) raised %r" % exc)
+    time.sleep(6)
+    try:
+        import webbrowser
+
+        log("webbrowser -> %s" % webbrowser.open(url, new=2))
+    except Exception as exc:  # noqa: BLE001
+        log("webbrowser raised %r" % exc)
+    time.sleep(6)
+    path = os.path.join(_log_dir(), "打开浏览器-诊断.log")
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    sys.stderr.write("\n".join(lines) + "\n")
+    return 0
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "--test-open":
+        _ensure_streams()
+        sys.exit(_test_open(sys.argv[2]))
     sys.exit(main())

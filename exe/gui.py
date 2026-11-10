@@ -23,6 +23,7 @@ import io
 import json
 import os
 import shutil
+import socket
 import socketserver
 import subprocess
 import sys
@@ -31,6 +32,8 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass, field
+
+from renpy_toolkit import engine
 
 CONFIG_NAME = "config.json"
 DEFAULT_LANGUAGE = "chinese"
@@ -121,24 +124,20 @@ def has_game_interpreter(root: str) -> bool:
     return False
 
 
-def looks_like_game(path: str) -> bool:
-    """判定标准：有 ``game/`` 子目录，且能看出是个 Ren'Py 发行版。
+_LAST_REJECTED: list[dict] = []
 
-    "能看出"= 有启动脚本、或自带解释器、或 ``game/`` 里有 ``.rpy``/``.rpyc``/``.rpa``。
-    最后一条覆盖"只留了 game 目录、启动器被改名或删掉"的情况。
+
+def looks_like_game(path: str) -> bool:
+    """判定标准：**必须是 Ren'Py 引擎的游戏**，光有 ``game/`` 目录不算。
+
+    证据链见 :mod:`engine`：``RENPY RPC2`` 编译脚本 / ``RPA-3.0`` 归档 /
+    ``renpy/`` 运行时 / ``lib/py3-*`` 自带解释器 / 启动脚本引用 renpy /
+    ``game/`` 里的 Ren'Py 源码结构。任一条命中才算。
+
+    这条检查是硬性的：本工具每一步都假设目标是 Ren'Py，对着别的目录跑会报一堆
+    看不懂的错，甚至把对方的 ``game/`` 当成 TL 输出目标。
     """
-    game = os.path.join(path, "game")
-    if not os.path.isdir(game):
-        return False
-    if find_launcher(path) or has_game_interpreter(path):
-        return True
-    try:
-        for name in os.listdir(game):
-            if name.lower().endswith((".rpy", ".rpyc", ".rpa")):
-                return True
-    except OSError:
-        return False
-    return False
+    return engine.detect(path).is_renpy
 
 
 def discover_games(base: str, depth: int = 1) -> list[Game]:
@@ -148,13 +147,20 @@ def discover_games(base: str, depth: int = 1) -> list[Game]:
     把别人的工程卷进来。扫到的每个目录都独立成一个候选，互不影响。
     """
     found: list[Game] = []
+    rejected: list[dict] = []
 
     def add(path: str, name: str) -> None:
-        if looks_like_game(path):
+        if not os.path.isdir(os.path.join(path, "game")):
+            # 候选必须是「含 game/ 的目录」；game/ 本身不是候选
+            return
+        found_det = engine.detect(path)
+        if found_det.is_renpy:
             found.append(Game(root=os.path.abspath(path), name=name, launcher=find_launcher(path)))
+        elif os.path.isdir(os.path.join(path, "game")):
+            # 有 game/ 但不是 Ren'Py：记下来，界面上把原因告诉用户
+            rejected.append({"name": name, "path": os.path.abspath(path), "reason": found_det.summary()})
 
-    if looks_like_game(base):
-        add(base, os.path.basename(os.path.abspath(base)) or base)
+    add(base, os.path.basename(os.path.abspath(base)) or base)
     if depth <= 0:
         return found
     try:
@@ -167,21 +173,30 @@ def discover_games(base: str, depth: int = 1) -> list[Game]:
         path = os.path.join(base, name)
         if os.path.isdir(path):
             add(path, name)
+    global _LAST_REJECTED
+    _LAST_REJECTED = rejected
     return found
 
 
 def config_path(base: str) -> str:
-    return os.path.join(base, CONFIG_NAME)
+    """配置也放数据目录里（旧版本写在 exe 旁边，读的时候两处都认）。"""
+    return os.path.join(base, OUTPUT_DIR_NAME, CONFIG_NAME)
 
 
 def load_config(base: str) -> dict:
-    """读配置；坏文件/不存在都退回空字典，绝不让界面起不来。"""
-    try:
-        with open(config_path(base), "r", encoding="utf-8") as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
+    """读配置；坏文件/不存在都退回空字典，绝不让界面起不来。
+
+    先读数据目录里的，再退回旧版本写在 exe 旁边的 `config.json`。
+    """
+    for path in (config_path(base), os.path.join(base, CONFIG_NAME)):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            return data
+    return {}
 
 
 def save_config(base: str, data: dict) -> str | None:
@@ -191,7 +206,7 @@ def save_config(base: str, data: dict) -> str | None:
     记忆是便利功能，失败不该打断主流程。
     """
     try:
-        os.makedirs(base, exist_ok=True)
+        os.makedirs(os.path.dirname(config_path(base)), exist_ok=True)
         with open(config_path(base), "w", encoding="utf-8", newline="\n") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=True)
             fh.write("\n")
@@ -438,8 +453,17 @@ def html_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "ui", "index.html")
 
 
+def data_dir() -> str:
+    """exe 产生的所有东西都放这一个目录里，保持 exe 旁边整洁。"""
+    return os.path.join(base_dir(), OUTPUT_DIR_NAME)
+
+
+def log_dir() -> str:
+    return os.path.join(data_dir(), "日志")
+
+
 def crash_log_path() -> str:
-    return os.path.join(base_dir(), "renpy-toolkit-窗口错误.log")
+    return os.path.join(log_dir(), "renpy-toolkit-窗口错误.log")
 
 
 def _log_crash(exc: BaseException) -> str:
@@ -449,12 +473,364 @@ def _log_crash(exc: BaseException) -> str:
     """
     path = crash_log_path()
     try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write("Ren'Py 汉化工具包 启动失败\n\n")
             traceback.print_exception(type(exc), exc, exc.__traceback__, file=fh)
     except OSError:
         return ""
     return path
+
+
+def startup_log_path() -> str:
+    return os.path.join(log_dir(), "renpy-toolkit-启动.log")
+
+
+def _slog(message: str) -> None:
+    """启动过程留痕：窗口模式下用户看不到任何输出，出问题只能靠这个文件。"""
+    path = startup_log_path()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("%s  %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), message))
+    except OSError:
+        pass
+
+
+def show_error(title: str, lines: list[str], *, seconds: int = 20) -> None:
+    """把启动失败的原因显示出来（windowed 模式没有控制台）。"""
+    for line in lines:
+        _slog("ERROR %s" % line)
+    text = "\n".join(lines)
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        messagebox.showerror(title, text, parent=root)
+        root.destroy()
+        return
+    except Exception:
+        pass
+    # tkinter 用不了就退回倒计时窗（至少不是一闪就没的对话框）
+    try:
+        blocking_notice(title, lines, seconds=seconds, exit_code=4)
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# 启动前的三道闸：危险路径 / 单实例 / 就绪探测
+# ---------------------------------------------------------------------------
+def is_dangerous_root(path: str) -> bool:
+    """``path`` 是不是盘符根（``C:\\`` / ``E:\\``）。
+
+    只有「盘符 + 反斜杠」才算。放在根目录跑，产物会散在盘根、误操作面也最大，
+    所以直接拒绝。UNC 共享（``\\\\server\\share``）不在此列 —— 它不是盘符根。
+    """
+    drive, tail = os.path.splitdrive(os.path.abspath(path))
+    if len(drive) != 2 or drive[1] != ":":
+        return False
+    return tail in ("\\", "/", "")
+
+
+def _acquire_single_instance(name: str = "renpy-toolkit-gui") -> bool:
+    """Windows 命名互斥体做单实例。已有实例在跑则返回 ``False``。
+
+    非 Windows（或 API 不可用）一律放行 —— 这里只解决「双击两次开出两个窗口、
+    两个进程抢同一个数据目录」这一实际问题，不做安全边界。
+    """
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.CreateMutexW(None, False, "Local\\" + name)
+        if not handle:
+            return True
+        already = 183  # ERROR_ALREADY_EXISTS
+        if kernel32.GetLastError() == already:
+            return False
+        # 句柄必须活到进程结束，否则互斥体被回收，单实例就失效了。
+        globals()["_SINGLETON_MUTEX"] = handle
+        return True
+    except Exception:
+        return True
+
+
+def wait_until_listening(port: int, timeout: float = 60.0) -> bool:
+    """等服务真的能接受连接了再开浏览器。
+
+    单文件包每次启动都要把 17 MB 解到临时目录，首次还要过一遍杀毒扫描，这段
+    时间里服务可能还没起来。浏览器先打开就会看到「Failed to fetch」——用户看到
+    的「第一次启动失败、第二次才好」多半就是它。所以先在后台等端口通，再开窗口。
+    """
+    deadline = time.time() + timeout
+    started = time.time()
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), 0.3):
+                _slog("服务就绪 port=%d（等待 %.2fs）" % (port, time.time() - started))
+                return True
+        except OSError:
+            time.sleep(0.1)
+    _slog("服务就绪超时 port=%d（等了 %.1fs）" % (port, timeout))
+    return False
+
+
+def _ascii_path(path: str) -> bool:
+    return all(ord(ch) < 128 for ch in path)
+
+
+def short_path(path: str) -> str:
+    """把含中文的路径换成 Windows 8.3 短路径（纯 ASCII）。
+
+    Edge 的 ``--user-data-dir`` 拿到非 ASCII 路径时会忽略它、退回用户默认
+    profile，于是扩展页会跟着一起开。短路径是 ASCII，能避开这个问题。
+    """
+    if os.name != "nt" or _ascii_path(path):
+        return path
+    try:
+        import ctypes
+
+        buf = ctypes.create_unicode_buffer(1024)
+        n = ctypes.windll.kernel32.GetShortPathNameW(path, buf, 1024)
+        # 8.3 短名在某些卷上是关闭的，这时 API 会原样返回（含中文），
+        # 那就没有意义了，直接退回原路径。
+        if n and _ascii_path(buf.value):
+            return buf.value
+        return path
+    except Exception:
+        return path
+
+
+def _mkdtemp(dir: str, seconds: float = 6.0) -> str:
+    """建临时目录，带超时。建不出来返回空串（不抛）。"""
+    done = threading.Event()
+    out: list[str] = [""]
+
+    def work() -> None:
+        try:
+            out[0] = tempfile.mkdtemp(prefix="browser-", dir=dir)
+        except Exception:
+            out[0] = ""
+        finally:
+            done.set()
+
+    threading.Thread(target=work, daemon=True).start()
+    done.wait(seconds)
+    return out[0]
+
+
+def _makedirs(path: str, seconds: float = 5.0) -> bool:
+    """建目录，但最多等 ``seconds`` 秒。
+
+    受限账户或安全软件下，往 C:\\Users\\... 建目录可能长时间卡住而不是报错，
+    这里用线程兜住，避免整个程序没有任何反应。
+    """
+    done = threading.Event()
+    result: list[bool] = [False]
+
+    def work() -> None:
+        try:
+            os.makedirs(path, exist_ok=True)
+            result[0] = True
+        except OSError:
+            result[0] = False
+        finally:
+            done.set()
+
+    threading.Thread(target=work, daemon=True).start()
+    return done.wait(seconds) and result[0]
+
+
+def browser_profile_root(outdir: str) -> str:
+    """挑一个 profile 父目录。
+
+    优先用数据目录（就在 exe 旁边，必然可写）。只有它的路径含非 ASCII 时才
+    尝试 %LOCALAPPDATA% 或 8.3 短路径 —— Edge 拿到非 ASCII 的 --user-data-dir
+    会忽略它、退回用户默认 profile，于是扩展页会跟着一起打开。
+
+    注意顺序：%LOCALAPPDATA% 排在后面。某些受限账户/安全软件环境下往
+    C:\\Users\\... 建目录会长时间卡住，而数据目录不会。
+    """
+    data = os.path.join(outdir, "临时", "browser")
+    if _makedirs(data):
+        # 数据目录已经建好了，就用它：这是唯一能确保「一定能写」的位置。
+        # 路径含中文时 Edge 会忽略这个 profile（顶多多加载扩展），但至少不会
+        # 出现「卡住没反应」。想避免扩展页可以用 --tab 模式。
+        if _ascii_path(data):
+            return data
+        short = short_path(data)
+        return short if _ascii_path(short) else data
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        cand = os.path.join(local, "renpy-toolkit", "browser")
+        if _ascii_path(cand) and _makedirs(cand):
+            return cand
+    return data
+
+
+def browser_command(browser: str, url: str, profile: str) -> list[str]:
+    """``--app`` 窗口的启动参数。
+
+    两个关键点：
+    * ``--user-data-dir`` 必须是**纯 ASCII** 路径。带中文的 profile 目录会让
+      Edge 忽略它、退回用户自己的默认 profile —— 于是用户装了扩展就会连带
+      打开一堆扩展页。所以下面的 profile 目录名一律用 ``browser-`` 前缀。
+    * ``--disable-extensions`` 双保险：即使 profile 被忽略，也不加载扩展。
+    """
+    return [
+        browser,
+        "--app=%s" % url,
+        "--window-size=1200,800",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-features=msEdgeSidebarV2",
+        "--user-data-dir=%s" % profile,
+    ]
+
+
+def open_in_default_browser(url: str) -> bool:
+    """在用户**自己**的浏览器里打开一个普通页面。
+
+    直接用浏览器可执行文件 + 一个 URL 参数启动（不带 `--app`、不带
+    `--user-data-dir`），这样复用的是用户已有的 profile 与窗口，不会重新
+    走一遍首次启动流程，也就不会连带打开一堆扩展页、也不会撞上 Edge 的
+    「无法更新」提示页。
+
+    走过 shell（`ShellExecuteW` / `cmd /c start`）在打包后的窗口态进程里
+    可能返回成功却什么都不发生（实测 ShellExecuteW 返回 42、cmd 返回 0，
+    但一个浏览器进程都没起来），所以优先直接 Popen 浏览器本体。
+    """
+    browser = find_browser()
+    if browser:
+        try:
+            subprocess.Popen(
+                [browser, url],
+                close_fds=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            return True
+        except OSError:
+            pass
+    if os.name == "nt":
+        try:
+            import ctypes
+
+            rc = ctypes.windll.shell32.ShellExecuteW(None, "open", url, None, None, 1)
+            if int(rc) > 32:
+                return True
+        except Exception:
+            pass
+        try:
+            subprocess.Popen(
+                ["cmd", "/c", "start", "", url],
+                close_fds=True,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            return True
+        except OSError:
+            pass
+    if hasattr(os, "startfile"):
+        try:
+            os.startfile(url)  # noqa: S606 - 本地 loopback 地址
+            return True
+        except OSError:
+            pass
+    try:
+        import webbrowser
+
+        if webbrowser.open(url, new=2):
+            return True
+    except Exception:
+        pass
+    return False
+def blocking_notice(
+    title: str,
+    lines: list[str],
+    *,
+    seconds: int = 10,
+    exit_code: int = 6,
+    button: str = "退出",
+) -> None:
+    """置顶模态提示：只有一个按钮，倒计时结束自动退出；关不掉，只能结束程序。
+
+    用 tkinter 而不是网页弹窗：这是**启动前**的闸门，此时 HTTP 服务还没起，
+    网页那套根本用不上；而且要求「无法通过其他方式关闭」，只有原生窗口能做
+    （去掉标题栏 + 拦 Alt+F4 + 忽略 WM_DELETE_WINDOW）。
+    """
+    try:
+        import tkinter as tk
+    except Exception:  # pragma: no cover - 无 tkinter 的构建
+        for line in lines:
+            print(line, file=sys.stderr)
+        raise SystemExit(exit_code)
+
+    root = tk.Tk()
+    root.title(title)
+    try:
+        root.overrideredirect(True)          # 没有标题栏 → 没有关闭按钮
+        root.attributes("-topmost", True)    # 压住其它窗口
+    except Exception:
+        pass
+    root.configure(bg="#fef3f2")
+    width, height = 660, 340
+    x = max(0, (root.winfo_screenwidth() - width) // 2)
+    y = max(0, (root.winfo_screenheight() - height) // 2)
+    root.geometry("%dx%d+%d+%d" % (width, height, x, y))
+    root.protocol("WM_DELETE_WINDOW", lambda: None)   # 忽略关闭请求
+    root.bind("<Alt-F4>", lambda _e: "break")         # 拦 Alt+F4
+    root.bind("<Escape>", lambda _e: "break")
+
+    def stop() -> None:
+        try:
+            root.destroy()
+        finally:
+            os._exit(exit_code)  # 立刻结束整个进程，不给二次确认的机会
+
+    body = tk.Frame(root, bg="#fef3f2", padx=30, pady=24)
+    body.pack(fill="both", expand=True)
+    tk.Label(
+        body, text=title, bg="#fef3f2", fg="#b42318", anchor="w",
+        font=("Microsoft YaHei UI", 20, "bold"),
+    ).pack(fill="x")
+    for index, line in enumerate(lines):
+        tk.Label(
+            body, text=line, bg="#fef3f2", fg="#1b1f27", anchor="w",
+            justify="left", wraplength=width - 90,
+            font=("Microsoft YaHei UI", 13 if index == 0 else 11),
+        ).pack(fill="x", pady=(16 if index == 0 else 8, 0))
+
+    foot = tk.Frame(root, bg="#fef3f2")
+    foot.pack(fill="x", side="bottom", padx=30, pady=20)
+    counter = tk.Label(foot, bg="#fef3f2", fg="#5a6371", font=("Microsoft YaHei UI", 11))
+    counter.pack(side="left")
+    tk.Button(
+        foot, text=button, command=stop, relief="flat", cursor="hand2",
+        bg="#b42318", fg="white", activebackground="#8f1c13", activeforeground="white",
+        font=("Microsoft YaHei UI", 12), padx=30, pady=7,
+    ).pack(side="right")
+
+    remaining = {"left": max(1, int(seconds))}
+    counter.config(text="%d 秒后自动关闭" % remaining["left"])
+
+    def tick() -> None:
+        remaining["left"] -= 1
+        if remaining["left"] <= 0:
+            stop()
+            return
+        counter.config(text="%d 秒后自动关闭" % remaining["left"])
+        root.after(1000, tick)
+
+    root.after(1000, tick)
+    root.mainloop()
+    stop()
 
 
 def find_browser() -> str | None:
@@ -530,6 +906,20 @@ class Api:
         self.logs: list[tuple[str, str]] = []
         self._log_lock = threading.Lock()
         self._busy = threading.Lock()
+        # 「在普通标签页里打开」模式没有窗口可等，靠页面上的「退出工具」按钮
+        # 调 quit() 来结束进程。
+        self.stop_event = threading.Event()
+        self.mode = "app"
+        # 最后一次收到请求的时间：浏览器进程消失后靠它判断「窗口真的关了」
+        # 还是「启动器把窗口交给了另一个进程」。
+        self.last_hit = time.time()
+        self._logged_hit = False
+
+    def touch(self) -> None:
+        if not getattr(self, '_logged_hit', False):
+            self._logged_hit = True
+            _slog('收到第一个页面请求')
+        self.last_hit = time.time()
 
     # -- 基础设施 ---------------------------------------------------------
     def emit(self, line: str, cls: str = "") -> None:
@@ -575,6 +965,7 @@ class Api:
             "backup_mode": self.backup_mode,
             "scan_info": scan_info,
             "outdir": self.outdir,
+            "mode": self.mode,
             "xlsx": self.xlsx,
             "reference": self.reference,
             "groups": actions_by_group(),
@@ -601,7 +992,15 @@ class Api:
             if self.game:
                 self._prepare_dirs()
             n = len(self.games)
-            return self._payload(("找到 %d 个游戏" % n) if n else "这个目录下没有游戏")
+            payload = self._payload(("找到 %d 个游戏" % n) if n else "这个目录下没有游戏")
+            if _LAST_REJECTED:
+                payload["rejected"] = list(_LAST_REJECTED)
+            if not n:
+                payload["no_game_hint"] = (
+                    "没有检测到 Ren'Py 游戏。请把 renpy-toolkit.exe 移到游戏文件夹旁边"
+                    "（与游戏文件夹同级，或它的上一级），再重新打开本工具。"
+                )
+            return payload
         except Exception as exc:  # pragma: no cover - 极端环境
             msg, hint = explain_error(exc)
             return {"error": msg, "hint": hint, "games": [], "groups": actions_by_group()}
@@ -644,6 +1043,12 @@ class Api:
     def select(self, path: str) -> dict:
         try:
             target = os.path.abspath(path)
+            found_det = engine.detect(target)
+            if not found_det.is_renpy:
+                return {
+                    "error": "这个目录不是 Ren'Py 游戏，本工具只处理 Ren'Py 引擎的游戏。",
+                    "hint": found_det.summary(),
+                }
             for g in self.games:
                 if g.root == target:
                     self.game = g
@@ -711,6 +1116,15 @@ class Api:
             msg, hint = explain_error(exc)
             return {"error": msg, "hint": hint}
 
+    def quit(self) -> dict:
+        """页面上的「退出工具」按钮：停掉本地服务，让进程退出。"""
+        self.stop_event.set()
+        return {"ok": True}
+
+    def ping(self) -> dict:
+        """页面心跳。页面关掉之后心跳停止，主循环据此判断「用户已经走了」。"""
+        return {"ok": True, "pid": os.getpid()}
+
     def run_action(self, key: str, confirm: bool = False) -> dict:
         """执行一个动作。``confirm=False`` 时只做预演，返回需要确认的内容。"""
         if not self.game:
@@ -777,6 +1191,7 @@ class Api:
         逐行推到页面上只会把错误淹没。
         """
         from renpy_toolkit import cli
+        from renpy_toolkit import engine
 
         full = ["--backup-mode", self.backup_mode] + list(argv)
         os.environ["RTK_SCRATCH"] = ctx.scratch_dir
@@ -844,7 +1259,7 @@ class Api:
     # 方法白名单：只有这里列出的名字能被页面调用。
     EXPOSED = (
         "bootstrap", "rescan", "scan", "select", "save_prefs", "suggest_xlsx",
-        "open_outdir", "open_game", "run_action",
+        "open_outdir", "open_game", "run_action", "quit", "ping",
     )
 
 
@@ -893,6 +1308,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
                    "application/json; charset=utf-8")
 
     def do_GET(self) -> None:  # noqa: N802 - BaseHTTPRequestHandler 协议
+        self.api.touch()
         path = self.path.split("?", 1)[0]
         if path in ("/", "/index.html"):
             self._send(200, self.page, "text/html; charset=utf-8")
@@ -911,6 +1327,17 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self._send(404, b"not found", "text/plain; charset=utf-8")
 
     def do_POST(self) -> None:  # noqa: N802
+        path = self.path.split("?", 1)[0]
+        if path == "/api/bye":
+            # 页面关闭时用 sendBeacon 发过来，不能保证一定有响应体。
+            self.api.quit()
+            try:
+                self.send_response(204)
+                self.end_headers()
+            except OSError:
+                pass
+            return
+        self.api.touch()
         if self.path.split("?", 1)[0] != "/api/call":
             self._send(404, b"not found", "text/plain; charset=utf-8")
             return
@@ -950,60 +1377,223 @@ def make_server(api: Api, port: int = 0) -> tuple[_Server, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """起本地服务并开窗口。找不到浏览器时返回 5 并写日志。
+    """起本地服务并开界面。
 
-    ``--port N`` 固定端口、``--no-browser`` 只起服务不拉浏览器 —— 两个都只为
-    自动化验收存在（冻结包在无桌面会话里也能被脚本驱动）。
+    启动顺序：危险路径闸 → 单实例闸 → 起服务 → 等就绪 → 开浏览器。
+
+    **默认在用户自己的浏览器里开一个普通标签页**（``--tab`` 的行为）：复用它
+    已经开着的浏览器进程，既不新建 profile、也不会连带打开扩展页。想单独一个
+    无地址栏窗口时用 ``--app``。
+
+    ``--port N`` 固定端口、``--no-browser`` 只起服务不拉浏览器 —— 这两个主要
+    为自动化验收存在（冻结包在无桌面会话里也能被脚本驱动）。
     """
     argv = list(sys.argv[1:] if argv is None else argv)
     port_wanted = 0
     open_browser = True
+    tab_mode = True          # 默认标签页模式，见上方 docstring
     for i, item in enumerate(argv):
         if item == "--port" and i + 1 < len(argv):
             port_wanted = int(argv[i + 1])
         elif item == "--no-browser":
             open_browser = False
+        elif item == "--app":
+            tab_mode = False
+        elif item == "--tab":
+            tab_mode = True
+
+    # 闸 1：盘符根目录。产物会散在盘根、误操作面最大，直接拒绝。
+    here = base_dir()
+    _slog("启动：exe/base 目录 = %s" % here)
+    if is_dangerous_root(here):
+        blocking_notice(
+            "危险路径：本工具停止工作",
+            [
+                "当前所在位置是磁盘根目录：%s" % here,
+                "该路径下工具停止工作，以免把导出、备份、临时文件散落到盘根，"
+                "也避免误删盘根上的其它数据。",
+                "请把整个文件夹移到某个子目录再运行（例如 D:\\Games\\SomeGame\\ 旁边）。",
+            ],
+            seconds=10,
+            exit_code=6,
+        )
+        return 6
+
+    # 闸 2：单实例。双击两次会开出两个进程抢同一个数据目录，这里直接挡住。
+    if not _acquire_single_instance():
+        blocking_notice(
+            "本工具已经在运行",
+            [
+                "已有一个 renpy-toolkit 窗口在使用中。",
+                "请切换到那个窗口；如果看不到它，先在任务管理器里结束旧的 "
+                "renpy-toolkit.exe 再重试。",
+            ],
+            seconds=8,
+            exit_code=7,
+        )
+        return 7
+
     page = html_path()
     if not os.path.isfile(page):
+        _slog("ERROR 找不到界面文件 %s" % page)
         print("图形界面不可用：找不到界面文件 %s" % page, file=sys.stderr)
+        show_error("图形界面不可用", [
+            "找不到界面文件：%s" % page,
+            "包可能不完整（data/ui/index.html 缺失）。请重新解压完整的压缩包。",
+        ])
         return 3
     try:
         api = Api()
+        api.mode = "tab" if tab_mode else "app"
         srv, port = make_server(api, port_wanted)
         url = "http://127.0.0.1:%d/" % port
         thread = threading.Thread(target=srv.serve_forever, daemon=True)
         thread.start()
         if not open_browser:
-            # 验收模式：只跑服务，等外部脚本调完再被杀掉。
+            # 验收/无界面模式：只跑服务，等外部脚本调 quit()（或杀掉进程）。
             print(url, flush=True)
-            thread.join()
-            return 0
-        browser = find_browser()
-        if not browser:
-            api.emit("找不到 Edge 或 Chrome，界面无法打开。", "err")
+            while not api.stop_event.wait(1.0):
+                if time.time() - api.last_hit > 120.0:
+                    _slog("无界面模式空闲 120s，自动退出")
+                    break
             srv.shutdown()
-            print("找不到 Edge 或 Chrome：请安装其一，或改用命令行（--cli --help）。",
-                  file=sys.stderr)
+            return 0
+        # 等端口真的能连上再开浏览器：单文件包首次启动要解包 + 过杀毒扫描，
+        # 抢在前面打开只会得到一个「Failed to fetch」的空窗口。
+        if not wait_until_listening(port):
+            api.emit("本地服务启动超时。", "err")
+            srv.shutdown()
+            show_error("本地服务没能启动起来", [
+                "等了 60 秒，本地界面服务仍然没有响应（端口 %d）。" % port,
+                "常见原因：安全软件拦住了本程序的本地监听，或解压目录被隔离。",
+                "可以先把本工具加入杀毒/防火墙白名单，或改放到其它磁盘的子目录再试。",
+                "启动日志：%s" % startup_log_path(),
+            ])
+            return 4
+
+        browser = find_browser()
+        procs: list = []
+        profiles: list = []
+
+        def _hit_within(seconds: float, since: float) -> bool:
+            deadline = time.time() + seconds
+            while time.time() < deadline:
+                if api.last_hit > since:
+                    return True
+                if api.stop_event.wait(0.5):
+                    return False
+            return api.last_hit > since
+
+        def _open_tab() -> bool:
+            since = time.time()
+            ok = open_in_default_browser(url)
+            _slog("默认浏览器打开 %s -> %s" % (url, ok))
+            return ok and _hit_within(25.0, since)
+
+        def _open_app() -> bool:
+            if not browser:
+                _slog("没有可用的 Edge/Chrome，跳过独立窗口")
+                return False
+            # 先试「复用用户已有配置」的独立窗口：不带 --user-data-dir，
+            # 因此不会走 Edge 的首次启动流程（那一步会拉出扩展页，或弹出
+            # "无法更新 Microsoft Edge" 的提示页把界面顶掉）。
+            since = time.time()
+            _slog("先试独立窗口（复用已有配置）")
+            try:
+                p0 = subprocess.Popen(
+                    [browser, "--app=%s" % url, "--no-first-run",
+                     "--no-default-browser-check"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+                procs.append(p0)
+            except OSError as exc:
+                _slog("复用配置的独立窗口起不来：%r" % (exc,))
+            if _hit_within(12.0, since):
+                _slog("界面已连接（app 模式，复用配置）")
+                return True
+            try:
+                root = browser_profile_root(api.outdir)
+                _slog("profile 父目录 = %s" % root)
+                prof = _mkdtemp(root)
+                if not prof:
+                    _slog("建临时 profile 目录失败（超时或被拒）")
+                    return False
+            except Exception as exc:
+                _slog("准备 profile 失败：%r" % (exc,))
+                return False
+            profiles.append(prof)
+            _slog("启动独立窗口 %s  profile=%s" % (browser, prof))
+            try:
+                p = subprocess.Popen(
+                    browser_command(browser, url, prof),
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                )
+            except Exception as exc:
+                _slog("拉起浏览器失败：%r" % (exc,))
+                return False
+            procs.append(p)
+            _slog("浏览器进程 pid=%s" % p.pid)
+            return _hit_within(12.0, since_start)
+
+        since_start = time.time()
+        order = ("tab", "app") if tab_mode else ("app", "tab")
+        connected = False
+        for how in order:
+            if how == "tab":
+                connected = _open_tab()
+            else:
+                connected = _open_app()
+            if connected:
+                _slog("界面已连接（%s 模式）" % how)
+                break
+            _slog("%s 模式没能连上，换另一种" % how)
+        if not connected:
+            api.emit("界面没能打开。", "err")
+            srv.shutdown()
+            show_error("界面没能打开", [
+                "服务已经起来了（%s），但没能把界面打开到浏览器里。" % url,
+                "可以手动把上面的地址复制到浏览器打开；",
+                "或者直接改用命令行（--cli --help）。",
+                "启动日志：%s" % startup_log_path(),
+            ])
             return 5
-        # 浏览器 profile 放在数据目录的「临时」里，不用 tempfile：受限账户下
-        # %TEMP% 可能不可写，tempfile.gettempdir() 会回落到当前目录，把几百兆的
-        # profile 丢在用户的工作目录里。放这里既好清理，也符合"产物集中一处"。
-        profile_root = os.path.join(api.outdir, "临时")
-        os.makedirs(profile_root, exist_ok=True)
-        profile = tempfile.mkdtemp(prefix="浏览器-", dir=profile_root)
-        proc = subprocess.Popen(
-            [browser, "--app=%s" % url, "--window-size=1200,800", "--no-first-run",
-             "--no-default-browser-check", "--disable-features=msEdgeSidebarV2",
-             "--user-data-dir=%s" % profile],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
-        proc.wait()  # 关窗口就退出
+
+        # 服务寿命不绑浏览器进程句柄：某些启动器把窗口交给已有进程后自身会立刻
+        # 退出，用 proc.wait() 会连带把服务关掉，窗口就变成永远「连不上」。
+        idle_limit = 6 * 3600.0
+        quiet_limit = 40.0 if not procs else 120.0
+        while True:
+            if api.stop_event.wait(1.0):
+                _slog("收到退出请求")
+                break
+            idle = time.time() - api.last_hit
+            busy = getattr(api, "_busy", None)
+            running = bool(busy and busy.locked())
+            if not running and idle > quiet_limit:
+                # 页面每 4 秒发一次心跳；连着 40 秒没有请求，说明那个标签页
+                # 已经被关掉了（tab 模式下没有任何进程句柄可以等）。
+                _slog("页面已关闭（%ds 无心跳），关闭服务" % int(idle))
+                break
+            if idle > idle_limit:
+                _slog("空闲超过 %ds，自动关闭服务" % int(idle_limit))
+                break
         srv.shutdown()
-        shutil.rmtree(profile, ignore_errors=True)
-        return 0
+        for prof in profiles:
+            shutil.rmtree(prof, ignore_errors=True)
+        _slog("服务已关闭，退出")
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.flush()
+            except Exception:
+                pass
+        # 有非 daemon 线程（HTTP 服务、tkinter）时 return 不一定能让进程退掉。
+        os._exit(0)
     except Exception as exc:
         path = _log_crash(exc)
         print("图形界面启动失败：%s" % exc, file=sys.stderr)
-        if path:
-            print("详细信息已写入 %s" % path, file=sys.stderr)
+        show_error("图形界面启动失败", [
+            "本工具启动时出错：%s" % exc,
+            "详细信息已写入：%s" % (path or startup_log_path()),
+            "请把该日志发给作者，或改用命令行（--cli --help）。",
+        ])
         return 4

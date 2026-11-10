@@ -42,10 +42,46 @@ after a Ren'Py upgrade.
 - The three artifacts are therefore released independently: plugin/pip, agent
   skill, and the Windows exe.
 
+### Added
+
+**Ren'Py-only target validation**
+
+- Every entry point now refuses a directory that is not a Ren'Py game
+  (`renpy_toolkit/engine.py`). The check looks for evidence, never at directory
+  names: the `RENPY RPC2` magic in `game/*.rpyc`, the `RPA-3.0` archive magic,
+  a `renpy/` runtime, a bundled `lib/py3-*` interpreter, a launcher that imports
+  `renpy`, or Ren'Py source structure inside `game/`. Pointing the tool at any
+  other folder used to produce a wall of incomprehensible errors (and, for
+  `tl gen`, could write a skeleton into someone else's `game/`).
+- `tl gen`, `project audit` and `decompile dir` gained `--allow-non-renpy` as an
+  escape hatch; the GUI simply refuses and says which evidence was missing.
+
 ### Fixed
 
 **Windows exe (GUI)**
 
+- Closing the browser page now shuts the tool down. The page sends a heartbeat
+  every four seconds and fires `sendBeacon('/api/bye')` on `pagehide`; the server
+  exits when no request arrives for forty seconds, so it no longer lingers in
+  the background after the tab is closed.
+
+- The single-file build now extracts to its own directory (`--runtime-tmpdir .`).
+  The PyInstaller bootloader creates its temporary directory with a custom
+  security descriptor and on some machines that call fails outright with
+  `Could not create temporary directory!` — which looked like "the first launch
+  always fails, the second one sometimes works".
+- The UI opens in the user's own browser as a normal tab by default; a private
+  `--app` window (with a fresh profile, which drags in every installed
+  extension) is only the fallback when no request arrives within ten seconds.
+- The fallback profile lives in `renpy-toolkit-数据/临时/browser` instead of
+  `%LOCALAPPDATA%`: creating directories under `C:\\Users` can block
+  indefinitely under a restricted token, which froze the whole window.
+- Every startup step is logged to `renpy-toolkit-启动.log`, and every startup
+  failure raises a visible dialog instead of exiting silently.
+- The HTTP service no longer dies with the browser process. Launchers that hand
+  the window over to an already-running instance exit immediately, and the old
+  `proc.wait()` therefore shut the server down while the page was still loading
+  (the page then showed the bare `127.0.0.1/` address).
 - Every button raised `ImportError: attempted relative import with no known
   parent package` once `gui.py` left the package: two leftovers
   (`from . import cli`, `from . import __version__`) became
@@ -67,6 +103,27 @@ after a Ren'Py upgrade.
 - The UI is a light, high-contrast theme (the first one was dark-on-dark and
   hard to read), and the parameters card gained Excel-file and old-translation
   directory inputs, plus a "use the latest export" button.
+- The first launch always failed and the second one worked: a single-file build
+  unpacks ~14 MB and is scanned before the server exists, but the browser was
+  opened immediately. The tool now waits until the port is listening, and the
+  page retries the read-only calls (`bootstrap`, `scan`, `rescan`, `select`)
+  for 30 seconds. Write actions are deliberately not retried.
+- With Edge extensions installed, the app window came up alongside a pile of
+  extension pages, because a non-ASCII `--user-data-dir` (the temp directory
+  name contained Chinese) was ignored and Edge fell back to the user profile.
+  The profile directory is now `browser-…` (ASCII), and the launch flags
+  include `--disable-extensions`, `--no-first-run`, `--no-default-browser-check`.
+  A new `--tab` mode opens the UI as an ordinary tab in the browser the user
+  is already running (no second profile, no extension pages); the page then
+  shows a "退出工具" button that shuts the server down.
+- Three guards run before anything else: a refusal to run from a drive root
+  (a modal with a 10-second countdown, a single "退出" button, and no way to
+  close it otherwise), a single-instance mutex so a second copy does not start
+  a second server, and the wait-for-port check above.
+- With no game found, the page now says to move `renpy-toolkit.exe` next to a
+  game folder (same level as it, or one level above).
+- `--no-browser` now waits on the same stop event as `--tab`, so an automated
+  check can shut the server down instead of being killed.
 
 ### Added
 

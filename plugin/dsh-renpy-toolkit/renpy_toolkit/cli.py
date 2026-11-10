@@ -219,6 +219,8 @@ def build_parser() -> argparse.ArgumentParser:
                         "临时目录若落在游戏安装目录内，建议开启")
     p.add_argument("--write", action="store_true",
                    help="写到 <game>/tl/<language>（默认 dry-run，只报数量）")
+    p.add_argument("--allow-non-renpy", action="store_true",
+                   help="跳过「必须是 Ren'Py 游戏」的检查（默认拒绝非 Ren'Py 目录）")
 
     # ``tl context``: one English word meaning different things on different
     # screens.  Ren'Py's string table is global, so this either needs a
@@ -484,6 +486,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--overwrite", action="store_true", help="覆盖已存在的 .rpy")
     p.add_argument("--backup", action="store_true", help="覆盖前先备份旧文件（方式由 --backup-mode 决定）")
     p.add_argument("--write", action="store_true", help="真正写盘（默认 dry-run）")
+    p.add_argument("--allow-non-renpy", action="store_true",
+                   help="跳过「必须是 Ren'Py 游戏」的检查")
 
     p = dec_sub.add_parser("verify", help="反编译往返校验（标识符/字符串/对白）")
     p.add_argument("tl_dir")
@@ -506,6 +510,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = project_sub.add_parser("audit", help="静态体检（图片缺失/归档重叠/行尾）")
     p.add_argument("project_dir")
     p.add_argument("--no-archives", action="store_true", help="跳过 .rpa 检查")
+    p.add_argument("--allow-non-renpy", action="store_true",
+                   help="跳过「必须是 Ren'Py 游戏」的检查")
 
     return parser
 
@@ -745,6 +751,10 @@ def cmd_tl_gen(args: argparse.Namespace, out: _Out) -> int:
     root = os.path.abspath(args.basedir)
     if os.path.basename(root).lower() == "game":
         root = os.path.dirname(root)
+    if not getattr(args, "allow_non_renpy", False):
+        from .engine import require as _require_renpy
+
+        _require_renpy(root, what=args.basedir)
     target = args.outdir or os.path.join(root, "game", "tl", args.language)
 
     # No outdir on purpose: the generator picks a scratch base that the *game's*
@@ -1687,6 +1697,14 @@ def cmd_font(args: argparse.Namespace, out: _Out) -> int:
 # project
 # ---------------------------------------------------------------------------
 def cmd_project(args: argparse.Namespace, out: _Out) -> int:
+    if getattr(args, "allow_non_renpy", False) is False:
+        target = os.path.abspath(args.project_dir)
+        # 只在这个目录自己就是一个游戏（有 game/）时校验；给的是上层目录时放行，
+        # 由后面的扫描逻辑自己找游戏。
+        if os.path.isdir(os.path.join(target, "game")):
+            from .engine import require as _require_renpy
+
+            _require_renpy(target, what=args.project_dir)
     if args.action == "new":
         from .scaffold import new_project
 
@@ -1719,6 +1737,13 @@ def cmd_project(args: argparse.Namespace, out: _Out) -> int:
 # decompile
 # ---------------------------------------------------------------------------
 def cmd_decompile(args: argparse.Namespace, out: _Out) -> int:
+    if not getattr(args, "allow_non_renpy", False) and getattr(args, "action", "") == "dir":
+        target = os.path.abspath(args.root)
+        looks = os.path.isdir(os.path.join(target, "game")) or os.path.basename(target).lower() == "game"
+        if looks:
+            from .engine import require as _require_renpy
+
+            _require_renpy(target, what=args.root)
     from . import decompile as dec
 
     if args.action == "file":

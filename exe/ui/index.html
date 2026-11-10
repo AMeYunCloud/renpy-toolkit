@@ -5,87 +5,170 @@
 <title>Ren'Py 汉化工具包</title>
 <style>
   :root{
-    --bg:#f5f7fa; --panel:#ffffff; --panel2:#eef1f6; --line:#d5dbe4;
-    --text:#1b1f27; --dim:#5a6371; --accent:#1f6feb; --accent2:#1a7f4b;
-    --warn:#8a5300; --err:#b42318; --ok:#1a7f4b;
+    --bg:#f5f7fa; --surface:#ffffff; --surface-2:#f8fafc; --panel:#ffffff; --panel2:#eef1f6;
+    --line:#e4e8ee; --line-strong:#c7cfda;
+    --text:#101828; --text-2:#475467; --text-3:#667085;
+    --accent:#1f6feb; --accent-strong:#1a5fd0; --accent-tint:#eaf2ff;
+    --ok:#15803d; --ok-bg:#e7f6ec;
+    --warn:#b45309; --warn-bg:#fef3e2;
+    --err:#b42318; --err-bg:#fdecea;
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-6:24px;
+    --font-ui:"Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+    --font-mono:Consolas,"Cascadia Mono","Courier New",monospace;
+    --transition:150ms ease;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--text);
-    font:15px/1.6 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+    font:14px/1.55 var(--font-ui);
     display:flex;flex-direction:column;overflow:hidden}
-  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
-    background:#ffffff;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(16,24,40,.06)}
-  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;color:#101828}
-  header .ver{color:var(--dim);font-size:13px}
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;
+    background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;color:var(--text)}
+  .ver{color:var(--text-3);font-size:13px}
   header .spacer{flex:1}
-  .btn{background:#ffffff;color:var(--text);border:1px solid #c7cfda;
-    border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-weight:500;transition:.15s}
-  .btn:hover{background:#f2f6fd;border-color:#9fb4d6;color:#0f4c9c}
+  .btn{background:var(--surface);color:var(--text);border:1px solid var(--line-strong);
+    border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-weight:500;
+    font-family:inherit;transition:background var(--transition),border-color var(--transition),color var(--transition)}
+  .btn:hover{background:var(--accent-tint);border-color:#9fb4d6;color:#0f4c9c}
   .btn:active{transform:translateY(1px)}
-  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  .btn.primary:hover{background:#1a5fd0;color:#fff}
-  .btn.ghost{background:#ffffff}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn.primary{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff;font-weight:600}
+  .btn.primary:hover{background:#154fb0;border-color:#154fb0;color:#fff}
+  .btn.ghost{background:var(--surface)}
   .btn:disabled{opacity:.5;cursor:not-allowed}
-  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
-  .left{padding:18px 20px;overflow:auto;border-right:1px solid var(--line)}
-  .right{display:flex;flex-direction:column;min-height:0;background:#ffffff;border-left:1px solid var(--line)}
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 440px;min-height:0}
+  .left{padding:16px 20px 24px;overflow:auto;border-right:1px solid var(--line)}
+
+  /* 当前上下文条 */
+  .ctxbar{position:sticky;top:-16px;z-index:5;margin:-16px -20px 14px;padding:10px 20px;
+    background:rgba(255,255,255,.96);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--text-2);
+    backdrop-filter:blur(4px)}
+  .ctxbar .lbl{font-weight:700;color:var(--text)}
+  .ctxbar .chip{background:var(--panel2);border-radius:20px;padding:2px 9px;color:var(--text-2);font-size:12px}
+  .ctxbar .path{color:var(--text-3);max-width:38ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ctxbar.empty{background:#fffaf0;border-bottom-color:#f0c36d;color:#7a4a00}
+  .ctxbar.empty .lbl{color:#5a3500}
+
+  .right{display:flex;flex-direction:column;min-height:0;background:var(--surface);border-left:1px solid var(--line)}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
-  .card h2{font-size:15px;margin:0 0 12px;color:#101828;font-weight:700;letter-spacing:.2px}
+    padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--text);font-weight:700;letter-spacing:.2px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  select,input[type=text]{background:#ffffff;color:var(--text);border:1px solid #c7cfda;
-    border-radius:8px;padding:9px 11px;font-size:14px;min-width:0}
+  .subrow{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+  .subrow .subhd{width:100%;color:var(--text-3);font-size:12px;letter-spacing:.3px;margin-bottom:2px}
+  select,input[type=text]{background:var(--surface);color:var(--text);border:1px solid var(--line-strong);
+    border-radius:8px;padding:9px 11px;font-size:14px;min-width:0;font-family:inherit}
   select:focus,input[type=text]:focus{outline:2px solid #bcd3f7;border-color:var(--accent)}
   select{flex:1;min-width:240px}
   input[type=text]{width:130px}
+  input[type=text].wide{flex:1;min-width:380px;width:auto}
   .games{display:flex;flex-direction:column;gap:9px;margin-top:12px}
   .game{display:flex;gap:10px;align-items:center;padding:11px 13px;border:1px solid var(--line);
-    border-radius:10px;cursor:pointer;background:#fbfcfe;transition:.15s}
-  .game:hover{border-color:#9fb4d6;background:#f4f8ff}
-  .game.active{border-color:var(--accent);background:#eaf2ff;box-shadow:0 0 0 1px var(--accent) inset}
-  .game .nm{font-weight:700;color:#101828}
-  .game .pt{color:var(--dim);font-size:13px;word-break:break-all}
-  .game .tag{font-size:12px;padding:2px 8px;border-radius:20px;background:#eef1f6;color:#4a5464;white-space:nowrap}
-  .game .tag.ok{background:#e3f6ec;color:var(--ok)}
-  .game .tag.no{background:#fdf1e0;color:var(--warn)}
-  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:11px}
-  .act{text-align:left;background:#ffffff;color:var(--text);border:1px solid var(--line);border-radius:10px;
-    padding:12px 14px;cursor:pointer;transition:.15s;font-family:inherit}
-  .act:hover{border-color:var(--accent);background:#f4f8ff}
+    border-radius:10px;cursor:pointer;background:var(--surface-2);transition:var(--transition)}
+  .game:hover{border-color:#9fb4d6;background:var(--accent-tint)}
+  .game.active{border-color:var(--accent);background:var(--accent-tint);box-shadow:0 0 0 1px var(--accent) inset}
+  .game .nm{font-weight:700;color:var(--text)}
+  .game .pt{color:var(--text-3);font-size:13px;word-break:break-all}
+  .game .tag{font-size:12px;padding:2px 8px;border-radius:20px;background:var(--panel2);color:#4a5464;white-space:nowrap}
+  .game .tag.ok{background:var(--ok-bg);color:var(--ok)}
+  .game .tag.no{background:var(--warn-bg);color:var(--warn)}
+
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:11px}
+  .group-hd{grid-column:1/-1;display:flex;align-items:center;gap:8px;color:#344054;
+    font-size:13px;font-weight:700;letter-spacing:.3px;margin-top:12px}
+  .group-hd:first-child{margin-top:0}
+  .group-hd .cnt{font-weight:600;color:var(--text-3);background:var(--panel2);border-radius:20px;padding:0 7px;font-size:12px}
+  .act{text-align:left;background:var(--surface);color:var(--text);border:1px solid var(--line);
+    border-radius:10px;padding:11px 13px;cursor:pointer;transition:var(--transition);font-family:inherit;position:relative}
+  .act:hover:not(:disabled){border-color:var(--accent);background:var(--accent-tint)}
+  .act:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   .act:disabled{opacity:.55;cursor:not-allowed;background:#f7f8fa}
-  .act .l{font-weight:700;margin-bottom:3px;color:#101828;font-size:14px}
-  .act .h{color:var(--dim);font-size:13px;line-height:1.45}
-  .gtitle{grid-column:1/-1;color:#344054;font-size:14px;font-weight:700;margin-top:10px}
-  .right header{background:#ffffff;border-bottom:1px solid var(--line);padding:11px 15px;
-    font-size:13px;color:#344054;font-weight:600;display:flex;align-items:center;gap:8px}
-  #log{flex:1;overflow:auto;margin:0;padding:13px 15px;background:#fbfcfe;color:#1b1f27;
-    font:13px/1.65 Consolas,"Cascadia Mono",monospace;white-space:pre-wrap;word-break:break-word}
-  #log .err{color:var(--err)}
-  #log .warn{color:var(--warn)}
-  #log .ok{color:var(--ok)}
-  #log .cmd{color:#0f4c9c;font-weight:600}
-  #log .dim{color:#6b7480}
+  .act .l{font-weight:700;margin-bottom:3px;color:var(--text);font-size:14px;padding-right:52px}
+  .act .h{color:var(--text-3);font-size:13px;line-height:1.45}
+  .badge{position:absolute;top:9px;right:10px;font-size:11px;padding:1px 7px;border-radius:20px;
+    background:var(--panel2);color:var(--text-3);font-weight:600}
+  .badge.write{background:var(--warn-bg);color:var(--warn)}
+
+  /* 右栏 */
+  .right header{background:var(--surface);border-bottom:1px solid var(--line);padding:9px 12px;
+    font-size:13px;color:#344054;font-weight:600;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .right header .grow{flex:1}
+  .toolbtn{background:transparent;border:1px solid transparent;border-radius:6px;color:var(--text-2);
+    font-size:12px;padding:3px 8px;cursor:pointer;font-family:inherit}
+  .toolbtn:hover{background:var(--accent-tint);border-color:var(--line);color:#0f4c9c}
+  .toolbtn.on{background:var(--accent-tint);border-color:#bcd3f7;color:#0f4c9c;font-weight:700}
+  .log-list{flex:1;overflow:auto;padding:10px 12px;background:var(--surface-2)}
+  .log-list .placeholder{color:var(--text-3);padding:14px 6px;font-size:13px}
+  .log-list[data-filter=errors] .log-item:not([data-status=error]):not([data-status=warn]){display:none}
+
+  .log-item{border:1px solid var(--line);border-radius:10px;margin:0 0 8px;background:var(--surface);overflow:hidden}
+  .log-item[data-status=error]{border-left:3px solid var(--err)}
+  .log-item[data-status=warn]{border-left:3px solid var(--warn)}
+  .log-item[data-status=running]{border-left:3px solid var(--accent)}
+  .log-item[data-status=pending]{border-left:3px solid var(--accent)}
+  .log-item>summary{list-style:none;cursor:pointer;display:flex;gap:8px;align-items:center;
+    padding:8px 11px;font-size:13px;color:var(--text);user-select:none}
+  .log-item>summary::-webkit-details-marker{display:none}
+  .log-item>summary:hover{background:var(--accent-tint)}
+  .log-item>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+  .log-item .arrow{display:inline-block;width:10px;color:var(--text-3);transition:transform var(--transition)}
+  .log-item[open] .arrow{transform:rotate(90deg)}
+  .log-item .when{color:var(--text-3);font-family:var(--font-mono);font-size:12px}
+  .log-item .nm{font-weight:700;color:var(--text)}
+  .log-item .grow{flex:1}
+  .chip{font-size:12px;padding:1px 8px;border-radius:20px;background:var(--panel2);color:var(--text-2);white-space:nowrap}
+  .chip[data-s=running]{background:var(--accent-tint);color:#0f4c9c}
+  .chip[data-s=ok]{background:var(--ok-bg);color:var(--ok)}
+  .chip[data-s=warn]{background:var(--warn-bg);color:var(--warn)}
+  .chip[data-s=error]{background:var(--err-bg);color:var(--err);font-weight:700}
+  .chip[data-s=pending]{background:var(--accent-tint);color:#0f4c9c}
+  .chip[data-s="empty"]{background:var(--panel2);color:var(--text-3)}
+  .chip[data-s="cancelled"]{background:var(--panel2);color:var(--text-3)}
+  .log-body{background:var(--surface-2);padding:8px 12px 10px 12px;border-top:1px solid var(--line);
+    font:12.5px/1.6 var(--font-mono);white-space:pre-wrap;word-break:break-word;color:#1b1f27}
+  .log-body .ln{display:block}
+  .log-body .err{color:var(--err)}
+  .log-body .warn{color:var(--warn)}
+  .log-body .ok{color:var(--ok)}
+  .log-body .dim{color:#6b7480}
+  .log-body .cmdline{color:#0f4c9c;font-weight:600;border-left:3px solid #bcd3f7;
+    padding:2px 0 2px 8px;margin:6px 0 4px;background:#f0f6ff}
+  .log-body .hintbar{margin:2px 0 6px;padding:6px 9px;border-radius:7px;background:var(--err-bg);
+    color:#7a1c14;font-family:var(--font-ui);font-size:12.5px}
+  .log-body .hintbar.warn{background:var(--warn-bg);color:#7a4a00}
+  .runbar{height:3px;margin:2px 0 6px;border-radius:2px;background:linear-gradient(90deg,#dbe8ff,#1f6feb,#dbe8ff);
+    background-size:200% 100%;animation:slide 1.1s linear infinite}
+  @keyframes slide{from{background-position:100% 0}to{background-position:-100% 0}}
+  .spin{display:inline-block;width:10px;height:10px;border:2px solid #bcd3f7;border-top-color:var(--accent);
+    border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);animation:p 1s infinite alternate}
+  @keyframes p{to{opacity:.25}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
   .mask{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;
     align-items:center;justify-content:center;z-index:50}
   .mask.show{display:flex}
   .dialog{width:min(780px,92vw);max-height:82vh;display:flex;flex-direction:column;
     background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
     box-shadow:0 20px 60px rgba(16,24,40,.25)}
-  .dialog h3{margin:0;padding:16px 18px;font-size:16px;border-bottom:1px solid var(--line);color:#101828}
+  .dialog h3{margin:0;padding:16px 18px;font-size:16px;border-bottom:1px solid var(--line);color:var(--text)}
   .dialog .body{padding:14px 18px;overflow:auto;color:var(--text)}
-  .dialog pre{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:12px 14px;
-    font:13px/1.65 Consolas,monospace;white-space:pre-wrap;word-break:break-word;margin:8px 0 0;color:#1b1f27}
-  .dialog .foot{display:flex;gap:10px;justify-content:flex-end;padding:13px 18px;
-    border-top:1px solid var(--line)}
+  .dialog pre{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    font:12.5px/1.6 var(--font-mono);white-space:pre-wrap;word-break:break-word;margin:8px 0 0;color:#1b1f27}
+  .dialog .foot{display:flex;gap:10px;justify-content:flex-end;padding:13px 18px;border-top:1px solid var(--line)}
   .toast{position:fixed;left:50%;top:20px;transform:translateX(-50%);
-    max-width:min(760px,92vw);background:#fdecea;color:#7a1c14;border:1px solid #f0b3ac;
-    padding:12px 17px;border-radius:10px;display:none;z-index:60;box-shadow:0 12px 30px rgba(16,24,40,.18)}
+    max-width:min(760px,92vw);background:var(--err-bg);color:#7a1c14;border:1px solid #f0b3ac;
+    padding:11px 16px;border-radius:10px;display:none;z-index:60;box-shadow:0 12px 30px rgba(16,24,40,.18);font-size:13px}
   .toast.show{display:block}
-  .empty{color:var(--dim);padding:18px;text-align:center;border:1px dashed #c7cfda;border-radius:10px;background:#fbfcfe}
-  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);
-    animation:p 1s infinite alternate}
-  @keyframes p{to{opacity:.25}}
+  .empty{color:var(--text-3);padding:16px;text-align:center;border:1px dashed var(--line-strong);
+    border-radius:10px;background:var(--surface-2);font-size:13px;line-height:1.6}
+  .notice{margin:0 0 14px;padding:12px 15px;border-radius:10px;background:#fff7e6;
+    border:1px solid #f0c36d;color:#7a4a00;font-size:13.5px;line-height:1.55;display:none}
+  .notice.show{display:block}
+  .notice b{color:#5a3500}
 </style>
 </head>
 <body>
@@ -95,15 +178,22 @@
   <div class="spacer"></div>
   <button class="btn ghost" id="btnOut">打开数据目录</button>
   <button class="btn ghost" id="btnGame">打开游戏目录</button>
+  <button class="btn ghost" id="btnQuit" style="display:none">退出工具</button>
 </header>
 
 <main>
   <div class="left">
+    <div class="ctxbar empty" id="ctxbar">
+      <span class="lbl">尚未选择游戏</span>
+      <span>先点下面的游戏卡片，或用「打开这个目录」指定。</span>
+    </div>
+    <div class="notice" id="notice"></div>
+
     <div class="card">
       <h2>1 · 选择游戏</h2>
       <div class="row">
         <button class="btn" id="btnScan">重新扫描</button>
-        <input type="text" id="manual" placeholder="或直接填游戏目录" style="flex:1;min-width:240px;width:auto">
+        <input type="text" id="manual" placeholder="或直接填游戏目录" class="wide">
         <button class="btn" id="btnUse">打开这个目录</button>
         <span id="scanInfo" class="ver"></span>
       </div>
@@ -123,15 +213,18 @@
         </select>
         <span class="ver">导出与备份都落在数据目录，不写进游戏</span>
       </div>
-      <div class="row" style="margin-top:10px">
-        <label class="ver">Excel 文件</label>
-        <input type="text" id="xlsx" placeholder="回填译文用：留空则用「导出」目录里最新的 xlsx" spellcheck="false" style="flex:1;min-width:420px;width:auto">
-        <button class="btn ghost" id="btnPickXlsx" style="flex:0 0 auto">用最新导出的</button>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <label class="ver">旧译本目录</label>
-        <input type="text" id="ref" placeholder="搬运旧译文用：填上一版 game\tl\chinese 的路径" spellcheck="false" style="flex:1;min-width:420px;width:auto">
-        <span class="ver">只在这两个按钮需要</span>
+      <div class="subrow">
+        <div class="subhd">按需参数（只被特定按钮使用）</div>
+        <div class="row">
+          <label class="ver">Excel 文件</label>
+          <input type="text" id="xlsx" placeholder="回填译文用：留空则用「导出」目录里最新的 xlsx" spellcheck="false" class="wide">
+          <button class="btn ghost" id="btnPickXlsx" style="flex:0 0 auto">用最新导出的</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="ver">旧译本目录</label>
+          <input type="text" id="ref" placeholder="搬运旧译文用：填上一版 game\tl\chinese 的路径" spellcheck="false" class="wide">
+          <span class="ver">只有「回填译文」「搬运旧译文」两个按钮需要</span>
+        </div>
       </div>
     </div>
 
@@ -145,10 +238,15 @@
     <header>
       <span class="pulse" id="busyDot" style="display:none"></span>
       <span id="logTitle">运行日志</span>
-      <div style="flex:1"></div>
-      <button class="btn ghost" id="btnClear" style="padding:3px 9px;font-size:12px">清空</button>
+      <div class="grow"></div>
+      <button class="toolbtn" id="btnExpandAll" title="展开所有记录">全部展开</button>
+      <button class="toolbtn" id="btnCollapseAll" title="收起所有记录">全部收起</button>
+      <button class="toolbtn" id="btnOnlyErr" title="只显示失败或有警告的记录">只看错误</button>
+      <button class="toolbtn" id="btnClear" title="清空界面上的记录（不影响日志文件）">清空</button>
     </header>
-    <pre id="log"></pre>
+    <div class="log-list" id="logList">
+      <div class="placeholder" id="logPlaceholder">还没有运行记录。点左侧任一操作，这次的输出会归到一组里，可以单独折叠。</div>
+    </div>
   </div>
 </main>
 
@@ -170,21 +268,20 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
-const state = { games: [], current: null, busy: false, logSeq: 0 };
+const state = {
+  games: [], current: null, busy: false, logSeq: 0,
+  lang: 'chinese', backup: 'bak', xlsx: '', ref: '',
+  collector: null, pending: null, seq: 0, groups: [],
+};
+const WRITE_KEYS = new Set(['gen', 'table', 'apply', 'port', 'hardcoded', 'backup_save', 'decompile']);
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
-
-function push(line, cls) {
-  const el = $('log');
-  const span = document.createElement('span');
-  if (cls) span.className = cls;
-  span.textContent = line + '\n';
-  el.appendChild(span);
-  el.scrollTop = el.scrollHeight;
+function hhmmss(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
 }
-
 function toast(msg) {
   const t = $('toast');
   t.textContent = msg;
@@ -193,37 +290,213 @@ function toast(msg) {
   t._h = setTimeout(() => t.classList.remove('show'), 9000);
 }
 
-async function api(name, ...args) {
-  const r = await fetch('/api/call', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, args }),
-  });
-  return await r.json();
+/* ---------------- 日志分组 ---------------- */
+function logList() { return $('logList'); }
+
+function makeGroup(label, key) {
+  const ph = $('logPlaceholder');
+  if (ph) ph.remove();
+  const d = document.createElement('details');
+  d.className = 'log-item';
+  d.dataset.status = 'running';
+  d.dataset.key = key || '';
+  d.open = true;
+  d.innerHTML =
+    '<summary><span class="arrow">▸</span><span class="when"></span>' +
+    '<span class="nm"></span><span class="grow"></span>' +
+    '<span class="chip" data-s="running">运行中… 0s</span></summary>' +
+    '<div class="log-body"></div>';
+  d.querySelector('.when').textContent = hhmmss(new Date());
+  d.querySelector('.nm').textContent = label;
+  d.querySelector('summary').addEventListener('click', () => { d._manual = true; });
+  logList().appendChild(d);
+  const g = {
+    el: d, body: d.querySelector('.log-body'), chip: d.querySelector('.chip'),
+    label, key, status: 'running', t0: Date.now(), lines: 0, timer: null, manual: false,
+  };
+  g.timer = setInterval(() => {
+    if (g.status !== 'running') return;
+    const s = ((Date.now() - g.t0) / 1000).toFixed(0);
+    g.chip.textContent = '运行中… ' + s + 's';
+  }, 500);
+  state.groups.push(g);
+  followScroll();
+  return g;
 }
 
-// 日志由服务端缓冲，页面轮询增量——避免一次长命令把请求卡住。
+function appendLine(g, text, cls) {
+  if (!g) return;
+  const span = document.createElement('span');
+  span.className = 'ln' + (cls ? ' ' + cls : '');
+  span.textContent = text;
+  g.body.appendChild(span);
+  g.lines++;
+  followScroll();
+}
+
+function addCmdLine(g, text) {
+  if (!g) return;
+  const div = document.createElement('div');
+  div.className = 'cmdline';
+  div.textContent = text;
+  g.body.appendChild(div);
+  followScroll();
+}
+
+function addHintBar(g, text, kind) {
+  const div = document.createElement('div');
+  div.className = 'hintbar' + (kind === 'warn' ? ' warn' : '');
+  div.textContent = text;
+  g.body.insertBefore(div, g.body.firstChild);
+}
+
+function followScroll() {
+  const el = logList();
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight;
+}
+
+const STATUS_TEXT = { running: '运行中', ok: '完成', warn: '有问题', error: '失败',
+                      empty: '无内容', cancelled: '已取消', pending: '等待确认' };
+
+function finalizeGroup(g, status, opts) {
+  if (!g) return;
+  opts = opts || {};
+  if (g.timer) { clearInterval(g.timer); g.timer = null; }
+  g.status = status;
+  g.el.dataset.status = status;
+  const secs = ((Date.now() - g.t0) / 1000);
+  let text = STATUS_TEXT[status] || status;
+  if (status === 'ok' || status === 'warn' || status === 'error') {
+    text += ' · ' + secs.toFixed(1) + 's · ' + g.lines + ' 行';
+  }
+  if (status === 'error' && opts.code !== undefined) text = '失败 · 退出码 ' + opts.code;
+  g.chip.textContent = text;
+  g.chip.dataset.s = status;
+  if (opts.hint) addHintBar(g, opts.hint, status === 'warn' ? 'warn' : 'err');
+  if (status === 'error' || status === 'warn') {
+    g.el.open = true;
+    g.el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } else if (status === 'ok' || status === 'empty') {
+    g.el.open = true;
+    // 下一条指令开始时才自动收起，见 autoCollapsePrevious
+  } else {
+    g.el.open = false;
+  }
+  // 故意不清空 collector：动作结束后可能还有一两条尾巴（例如「完整输出：<路径>」），
+  // 它们属于刚跑完的这条指令，应该落在同一组里而不是飘到「系统消息」。
+}
+
+function autoCollapsePrevious() {
+  const prev = state.groups[state.groups.length - 1];
+  if (!prev) return;
+  if (prev.manual || prev.el._manual) return;
+  if (prev.status === 'ok' || prev.status === 'empty' || prev.status === 'cancelled') {
+    prev.el.open = false;
+  }
+}
+
+/* ---------------- 增量日志（单飞轮询） ---------------- */
+let polling = false;
 async function pollLogs() {
+  if (polling) return;
+  polling = true;
   try {
     const r = await fetch('/api/logs?since=' + state.logSeq);
     const data = await r.json();
-    (data.lines || []).forEach((it) => push(it.t, it.c));
+    (data.lines || []).forEach((it) => routeLine(it));
     state.logSeq = data.next || state.logSeq;
   } catch (e) { /* 服务还没起来，下次再试 */ }
+  finally { polling = false; }
 }
-setInterval(pollLogs, 350);
+
+function routeLine(it) {
+  const text = it.t;
+  const cls = it.c || '';
+  if (cls === 'cmd') {
+    if (!state.collector) {
+      // 兜底：没有活跃组时，命令行自己开一组
+      const g = makeGroup('命令', '');
+      state.collector = g;
+    }
+    addCmdLine(state.collector, text);
+    return;
+  }
+  if (!state.collector) {
+    if (!state.sysGroup || !state.sysGroup.el.isConnected) state.sysGroup = makeGroup('系统消息', '');
+    state.collector = null;
+    appendLine(state.sysGroup, text, cls || 'dim');
+    return;
+  }
+  appendLine(state.collector, text, cls);
+}
+setInterval(pollLogs, 400);
+
+/* ---------------- 调用后端 ---------------- */
+const RETRYABLE = new Set(['bootstrap', 'scan', 'rescan', 'select']);
+async function api(name, ...args) {
+  const payload = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, args }),
+  };
+  const tries = RETRYABLE.has(name) ? 180 : 1;
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetch('/api/call', payload);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return await r.json();
+    } catch (e) {
+      lastErr = e;
+      if (i + 1 < tries) await new Promise((s) => setTimeout(s, 500));
+    }
+  }
+  throw lastErr;
+}
 
 function setBusy(b) {
   state.busy = b;
   $('busyDot').style.display = b ? 'inline-block' : 'none';
-  document.querySelectorAll('.act').forEach((a) => { a.disabled = b; });
+  updateActions();
+}
+
+function updateActions() {
+  const noGame = !state.current;
+  document.querySelectorAll('.act').forEach((a) => {
+    const key = a.dataset.key;
+    let reason = '';
+    if (state.busy) reason = '正在执行上一条，请稍候。';
+    else if (noGame) reason = '先在「1 选择游戏」里选一个游戏。';
+    else if (key === 'apply' && !state.xlsx.trim()) reason = '先在「Excel 文件」里填路径，或用「用最新导出的」。';
+    else if (key === 'port' && !state.ref.trim()) reason = '先在「旧译本目录」里填上一版 tl 目录。';
+    a.disabled = !!reason;
+    a.setAttribute('aria-disabled', reason ? 'true' : 'false');
+    if (reason) a.title = reason; else a.removeAttribute('title');
+  });
+}
+
+/* ---------------- 渲染 ---------------- */
+function renderCtx() {
+  const bar = $('ctxbar');
+  if (!state.current) {
+    bar.className = 'ctxbar empty';
+    bar.innerHTML = '<span class="lbl">尚未选择游戏</span><span>先点下面的游戏卡片，或用「打开这个目录」指定。</span>';
+    return;
+  }
+  bar.className = 'ctxbar';
+  bar.innerHTML = '<span class="lbl">当前游戏：' + esc(state.current.name) + '</span>' +
+    '<span class="path" title="' + esc(state.current.root) + '">' + esc(state.current.root) + '</span>' +
+    '<span class="chip">语言 ' + esc(state.lang) + '</span>' +
+    '<span class="chip">备份 ' + esc(state.backup) + '</span>';
 }
 
 function renderGames() {
   const box = $('games');
   box.innerHTML = '';
   if (!state.games.length) {
-    box.innerHTML = '<div class="empty">这个目录下没找到 Ren\'Py 游戏。在上面填游戏所在目录，或把一键包放到游戏旁边再扫描。</div>';
+    box.innerHTML = '<div class="empty">这个目录下没找到 Ren\'Py 游戏。<br>' +
+      '请把 renpy-toolkit.exe 移到游戏文件夹旁边（与游戏文件夹同级，或它的上一级）再打开；<br>' +
+      '也可以在上面填游戏所在目录，点「打开这个目录」。</div>';
     return;
   }
   state.games.forEach((g) => {
@@ -232,8 +505,8 @@ function renderGames() {
     const tag = g.launcher
       ? '<span class="tag ok">可生成骨架</span>'
       : '<span class="tag no">无启动脚本</span>';
-    d.innerHTML = `<div style="flex:1;min-width:0"><div class="nm">${esc(g.name)}</div>
-      <div class="pt">${esc(g.root)}</div></div>${tag}`;
+    d.innerHTML = '<div style="flex:1;min-width:0"><div class="nm">' + esc(g.name) + '</div>' +
+      '<div class="pt">' + esc(g.root) + '</div></div>' + tag;
     d.onclick = () => selectGame(g.root);
     box.appendChild(d);
   });
@@ -244,18 +517,22 @@ function renderActions(groups) {
   box.innerHTML = '';
   (groups || []).forEach((g) => {
     const h = document.createElement('div');
-    h.className = 'gtitle';
-    h.textContent = '— ' + g.group + ' —';
+    h.className = 'group-hd';
+    h.innerHTML = '<span>' + esc(g.group) + '</span><span class="cnt">' + g.actions.length + '</span>';
     box.appendChild(h);
     g.actions.forEach((a) => {
       const b = document.createElement('button');
       b.className = 'act';
       b.dataset.key = a.key;
-      b.innerHTML = `<div class="l">${esc(a.label)}</div><div class="h">${esc(a.hint)}</div>`;
+      const isWrite = WRITE_KEYS.has(a.key);
+      b.innerHTML = '<span class="badge' + (isWrite ? ' write' : '') + '">' +
+        (isWrite ? '会写入' : '只读') + '</span>' +
+        '<div class="l">' + esc(a.label) + '</div><div class="h">' + esc(a.hint) + '</div>';
       b.onclick = () => runAction(a.key, a.label, false);
       box.appendChild(b);
     });
   });
+  updateActions();
 }
 
 function applyBoot(r) {
@@ -263,29 +540,38 @@ function applyBoot(r) {
   state.games = r.games || [];
   state.current = r.current || null;
   if (r.version) $('ver').textContent = 'v' + r.version;
-  if (r.language) $('lang').value = r.language;
-  if (r.backup_mode) $('backup').value = r.backup_mode;
+  if (r.language) { $('lang').value = r.language; state.lang = r.language; }
+  if (r.backup_mode) { $('backup').value = r.backup_mode; state.backup = r.backup_mode; }
   if (r.scan_info) $('scanInfo').textContent = r.scan_info;
   if (r.outdir) $('logTitle').textContent = '运行日志 · ' + r.outdir;
-  if (r.xlsx !== undefined) $('xlsx').value = r.xlsx || '';
-  if (r.reference !== undefined) $('ref').value = r.reference || '';
+  if (r.xlsx !== undefined) { $('xlsx').value = r.xlsx || ''; state.xlsx = r.xlsx || ''; }
+  if (r.reference !== undefined) { $('ref').value = r.reference || ''; state.ref = r.reference || ''; }
+  const nb = $('notice');
+  if (r.no_game_hint) {
+    nb.innerHTML = '<b>没有找到游戏。</b>' + esc(r.no_game_hint);
+    nb.classList.add('show');
+  } else {
+    nb.classList.remove('show');
+  }
+  if (r.mode === 'tab') $('btnQuit').style.display = '';
+  renderCtx();
   renderGames();
   if (r.groups) renderActions(r.groups);
+  updateActions();
 }
 
+/* ---------------- 动作 ---------------- */
 async function selectGame(path) {
   const r = await api('select', path);
   if (r.error) { toast(r.error); return; }
   applyBoot(r);
-  push('已选择游戏：' + (r.current ? r.current.name : path), 'ok');
 }
 
-let pending = { key: null, label: '' };
-function showConfirm(key, label, previewText, count, targets) {
-  pending = { key, label };
+function showConfirm(label, previewText, count, targets) {
   $('dlgTitle').textContent = '确认：' + label;
   $('dlgText').innerHTML = count
-    ? `将写入 <b>${count}</b> 个目标：<br><span style="color:#9aa3b5">${esc((targets || []).join('  ·  '))}</span>`
+    ? '将写入 <b>' + count + '</b> 个目标：<br><span style="color:#667085">' +
+      esc((targets || []).join('  ·  ')) + '</span>'
     : '这条命令会修改文件。下面是预演结果：';
   $('dlgPre').textContent = previewText || '（预演没有输出）';
   $('mask').classList.add('show');
@@ -294,30 +580,69 @@ function showConfirm(key, label, previewText, count, targets) {
 async function runAction(key, label, confirm) {
   if (state.busy) return;
   if (!state.current) { toast('先在上面选一个游戏。'); return; }
+
+  let g;
+  if (confirm && state.pending && state.pending.key === key) {
+    g = state.pending.group;
+    g.el.open = true;
+    g.status = 'running';
+    g.el.dataset.status = 'running';
+    g.chip.textContent = '运行中… 0s';
+    g.chip.dataset.s = 'running';
+  } else {
+    autoCollapsePrevious();
+    g = makeGroup(label, key);
+    state.collector = g;
+  }
+
   setBusy(true);
   try {
     const r = await api('run_action', key, confirm);
     await pollLogs();
     if (r.need_confirm) {
-      showConfirm(key, label, r.preview_text, r.write_count, r.write_targets);
+      finalizeGroupPending(g);
+      state.pending = { key, label, group: g };
+      showConfirm(label, r.preview_text, r.write_count, r.write_targets);
     } else if (r.error) {
+      finalizeGroup(g, 'error', { hint: r.hint || r.error });
       toast(r.error);
-      if (r.hint) push('提示：' + r.hint, 'warn');
+      state.pending = null;
+    } else if (!r.ok) {
+      finalizeGroup(g, 'warn', { code: r.code, hint: r.hint });
+      state.pending = null;
+    } else if (r.hint && /没有可处理|没有找到|nothing to/i.test(r.hint)) {
+      finalizeGroup(g, 'empty', { hint: r.hint });
+      state.pending = null;
     } else {
-      push('✔ ' + label + '：' + (r.ok ? '完成' : '有问题') +
-           '（退出码 ' + r.code + '）' + (r.hint ? ' — ' + r.hint : ''), r.ok ? 'ok' : 'warn');
+      finalizeGroup(g, 'ok', { code: r.code });
+      state.pending = null;
     }
   } catch (e) {
+    finalizeGroup(g, 'error', { hint: '界面异常：' + e });
     toast('界面异常：' + e);
+    state.pending = null;
   } finally {
     setBusy(false);
   }
 }
 
-$('dlgNo').onclick = () => { $('mask').classList.remove('show'); push('已取消。', 'dim'); };
+function finalizeGroupPending(g) {
+  if (g.timer) { clearInterval(g.timer); g.timer = null; }
+  g.status = 'pending';
+  g.el.dataset.status = 'pending';
+  g.chip.textContent = '等待确认';
+  g.chip.dataset.s = 'pending';
+}
+
+/* ---------------- 事件 ---------------- */
+$('dlgNo').onclick = () => {
+  $('mask').classList.remove('show');
+  if (state.pending && state.pending.group) finalizeGroup(state.pending.group, 'cancelled');
+  state.pending = null;
+};
 $('dlgYes').onclick = () => {
   $('mask').classList.remove('show');
-  if (pending.key) runAction(pending.key, pending.label, true);
+  if (state.pending && state.pending.key) runAction(state.pending.key, state.pending.label, true);
 };
 
 $('btnScan').onclick = async () => { applyBoot(await api('rescan')); };
@@ -329,9 +654,45 @@ $('btnUse').onclick = async () => {
 $('manual').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnUse').click(); });
 $('btnOut').onclick = () => api('open_outdir');
 $('btnGame').onclick = () => api('open_game');
-$('btnClear').onclick = () => { $('log').textContent = ''; };
-function savePrefs() {
-  return api('save_prefs', $('lang').value, $('backup').value, $('xlsx').value, $('ref').value);
+
+$('btnClear').onclick = () => {
+  logList().innerHTML = '<div class="placeholder" id="logPlaceholder">还没有运行记录。点左侧任一操作，这次的输出会归到一组里，可以单独折叠。</div>';
+  state.groups = [];
+  state.sysGroup = null;
+  state.collector = null;
+  $('logList').dataset.filter = '';
+  $('btnOnlyErr').classList.remove('on');
+};
+$('btnExpandAll').onclick = () => {
+  document.querySelectorAll('.log-item').forEach((d) => { d.open = true; d._manual = true; });
+};
+$('btnCollapseAll').onclick = () => {
+  document.querySelectorAll('.log-item').forEach((d) => { d.open = false; d._manual = true; });
+};
+$('btnOnlyErr').onclick = () => {
+  const el = $('logList');
+  const on = el.dataset.filter === 'errors';
+  el.dataset.filter = on ? '' : 'errors';
+  $('btnOnlyErr').classList.toggle('on', !on);
+};
+
+$('btnQuit').onclick = async () => {
+  $('btnQuit').disabled = true;
+  $('btnQuit').textContent = '正在退出…';
+  try { await api('quit'); } catch (e) { /* 服务已经停了，属正常 */ }
+  document.body.innerHTML =
+    '<div style="padding:60px;font:16px/1.7 system-ui;color:#101828">' +
+    '工具已退出，可以关闭这个标签页了。</div>';
+};
+
+async function savePrefs() {
+  state.lang = $('lang').value;
+  state.backup = $('backup').value;
+  state.xlsx = $('xlsx').value;
+  state.ref = $('ref').value;
+  renderCtx();
+  updateActions();
+  return api('save_prefs', state.lang, state.backup, state.xlsx, state.ref);
 }
 $('lang').onchange = savePrefs;
 $('backup').onchange = savePrefs;
@@ -343,19 +704,41 @@ $('btnPickXlsx').onclick = async () => {
   if (!r.path) { toast(r.hint || '数据目录里还没有 xlsx。'); return; }
   $('xlsx').value = r.path;
   await savePrefs();
-  push('已填入：' + r.path, 'dim');
 };
 
 (async function boot() {
-  try {
-    const r = await api('bootstrap');
-    applyBoot(r);
-    await pollLogs();
-    push('就绪。先选游戏，再点操作。', 'dim');
-    push('导出、备份、反编译结果都放在数据目录，不写进游戏；只有「生成汉化骨架」会写进 game\\tl\\<语言>。', 'dim');
-  } catch (e) {
-    toast('初始化失败：' + e);
+  // 页面可能比后端先就绪（单文件包首次解压慢），此时 fetch 会失败。
+  // 不要只报一次错就放弃——持续重试，直到服务起来。
+  let attempt = 0;
+  for (;;) {
+    try {
+      const r = await api('bootstrap');
+      applyBoot(r);
+      await pollLogs();
+      return;
+    } catch (e) {
+      attempt++;
+      const box = $('notice');
+      if (box) {
+        box.className = 'notice show';
+        box.innerHTML = attempt < 4
+          ? '正在连接工具服务…'
+          : '<b>还连不上工具服务</b>（已重试 ' + attempt + ' 次）：' + esc(String(e))
+            + '<br>若长时间停在这里，请关闭本窗口，检查启动日志 renpy-toolkit-启动.log。';
+      }
+      await new Promise((s) => setTimeout(s, attempt < 10 ? 700 : 2000));
+    }
   }
+  // 心跳：4 秒一次。页面关掉后心跳停止，服务端 40 秒无请求就自己退出，
+  // 这样「关掉网页 = 关掉程序」，不会在后台留一个进程。
+  setInterval(() => { api('ping').catch(() => {}); }, 4000);
+  // 关闭/刷新页面时用 sendBeacon 立刻通知服务端退出（比等心跳快）。
+  window.addEventListener('pagehide', () => {
+    try { navigator.sendBeacon('/api/bye', '1'); } catch (e) {}
+  });
+  window.addEventListener('beforeunload', () => {
+    try { navigator.sendBeacon('/api/bye', '1'); } catch (e) {}
+  });
 })();
 </script>
 </body>

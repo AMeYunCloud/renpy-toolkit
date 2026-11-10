@@ -56,7 +56,7 @@ __all__ = [
     "cli",
     "contextmap",
     "decompile",
-    "errors",
+    "engine", "errors",
     "fontmap",
     "fonts",
     "fresh",

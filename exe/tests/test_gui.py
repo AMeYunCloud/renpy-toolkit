@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import unittest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -131,12 +132,14 @@ class TestConfig(unittest.TestCase):
 
     def test_broken_json_is_empty(self) -> None:
         path = gui.config_path(self.tmp)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             fh.write("{not json")
         self.assertEqual(gui.load_config(self.tmp), {})
 
     def test_json_list_is_ignored(self) -> None:
         path = gui.config_path(self.tmp)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as fh:
             json.dump([1, 2, 3], fh)
         self.assertEqual(gui.load_config(self.tmp), {})
@@ -251,6 +254,67 @@ class TestActionMapping(unittest.TestCase):
             if spec["group"] not in seen:
                 seen.append(spec["group"])
         self.assertEqual([g["group"] for g in groups], seen)
+
+
+class TestStartupGuards(unittest.TestCase):
+    """启动前三道闸的纯逻辑：危险路径、浏览器参数、单实例。"""
+
+    def test_drive_roots_are_dangerous(self) -> None:
+        for path in ("C:\\", "E:\\", "D:/", "c:\\"):
+            self.assertTrue(gui.is_dangerous_root(path), path)
+
+    def test_normal_directories_are_safe(self) -> None:
+        for path in (
+            "C:\\Games\\SomeGame",
+            "E:\\WorkPlace\\dsh\\renpy\\exe",
+            os.path.dirname(os.path.abspath(__file__)),
+        ):
+            self.assertFalse(gui.is_dangerous_root(path), path)
+
+    def test_unc_share_is_not_a_drive_root(self) -> None:
+        # \\server\share 是共享根，但不是盘符根，不拦
+        self.assertFalse(gui.is_dangerous_root(r"\\server\share"))
+
+    def test_browser_command_disables_extensions(self) -> None:
+        args = gui.browser_command(r"C:\edge.exe", "http://127.0.0.1:8000/", r"D:\d\临时\browser-abc")
+        self.assertIn("--app=http://127.0.0.1:8000/", args)
+        self.assertIn("--disable-extensions", args)
+        udd = [a for a in args if a.startswith("--user-data-dir=")]
+        self.assertEqual(len(udd), 1)
+        self.assertTrue(udd[0].endswith("browser-abc"))
+
+    def test_single_instance_acquires_once(self) -> None:
+        # 唯一名字，避免和真实实例或其它用例撞车
+        self.assertTrue(gui._acquire_single_instance("renpy-toolkit-test-singleton"))
+
+    def test_wait_until_listening_times_out_on_dead_port(self) -> None:
+        self.assertFalse(gui.wait_until_listening(1, timeout=0.3))
+
+
+class TestBrowserProfile(unittest.TestCase):
+    """profile 必须落在 ASCII 目录里，否则 Edge 会忽略它、把扩展页一起打开。"""
+
+    def test_ascii_path(self):
+        self.assertTrue(gui._ascii_path(r"C:\\Users\\a\\Temp"))
+        self.assertFalse(gui._ascii_path("E:\\工作区域\\临时"))
+
+    def test_short_path_is_ascii_on_windows(self):
+        if os.name != "nt":
+            self.skipTest("Windows only")
+        with tempfile.TemporaryDirectory() as root:
+            deep = os.path.join(root, "中文目录")
+            os.makedirs(deep, exist_ok=True)
+            short = gui.short_path(deep)
+            self.assertIsInstance(short, str)
+            self.assertTrue(short)
+            # 8.3 短名可被关闭（C: 上很常见），此时只能原样返回。
+            if short != deep:
+                self.assertTrue(gui._ascii_path(short))
+
+    def test_profile_root_exists_and_prefers_ascii(self):
+        with tempfile.TemporaryDirectory() as root:
+            got = gui.browser_profile_root(os.path.join(root, "数据"))
+            self.assertTrue(os.path.isdir(got))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@
 ```bash
 cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 519 个用例
+python -m unittest discover -s tests -t tests -q     # 531 个用例
 ```
 
 ## 目录
@@ -39,6 +39,7 @@ python -m unittest discover -s tests -t tests -q     # 519 个用例
 ```
 renpy_toolkit/                      29 个模块
 ├── __init__.py     包门面，__all__ 汇总
+├── engine.py       判定「是不是 Ren'Py 游戏」（硬性入口校验）
 ├── errors.py       统一异常层级（ToolkitError 为根）
 │
 │  ── 汉化：从发行版到可交付译文 ──
@@ -674,7 +675,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **519 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **531 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -754,7 +755,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 519 tests
+python -m unittest discover -s tests -t tests -q     # 531 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

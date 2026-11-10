@@ -109,3 +109,8 @@ _dist/release-notes-*.md
 
 # 安全审查记录只留本地，不随仓库发布。
 /docs/security-audit.md
+
+/renpy-toolkit-数据/
+
+/_MEI*/
+/_t/
