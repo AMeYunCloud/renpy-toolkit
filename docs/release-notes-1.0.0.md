@@ -38,8 +38,8 @@ A toolkit for Ren'Py authoring and localization. Its core capability is generati
 
 exe 的下载在单独的 Release：**exe-v1.0.0**。（本页只挂插件与 skill 两份产物。）
 
-> **（已停止维护）** exe 发行线已停止维护，不再随新版本发布、不再修复；`exe-v1.0.0`
-> 里的包保持原样，仅供留档。插件与 skill 两条线不受影响。
+> **（已停止维护）** exe 发行线已停止维护，不再随新版本发布。`exe-v1.0.0` 里的包已更新为
+> 最后一次修复版（浅色高对比界面、全部按钮可用），之后不再变动。插件与 skill 两条线不受影响。
 
 ### 主要能力
 
@@ -121,9 +121,10 @@ and neither of them contains or invokes the exe.
 The exe is published as a separate release: **exe-v1.0.0**. This page carries only
 the plugin and skill artifacts.
 
-> **DEPRECATED.** The exe release line is no longer maintained: no new releases and
-> no fixes. The package in `exe-v1.0.0` stays as it was, for archival reference
-> only. The plugin and skill lines are unaffected.
+> **DEPRECATED.** The exe release line is no longer maintained and receives no new
+> releases. The package in `exe-v1.0.0` has been updated to the final fixed build
+> (light high-contrast UI, every button working) and will not change again. The
+> plugin and skill lines are unaffected.
 
 ### Capabilities
 
