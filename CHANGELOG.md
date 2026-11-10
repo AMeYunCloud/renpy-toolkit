@@ -14,6 +14,17 @@ toolkit: every rule the code enforces is traced back to an engine fact or a
 format specification, so the documents can be used to re-verify the behaviour
 after a Ren'Py upgrade.
 
+### Deprecated
+
+**Windows exe line**
+
+- The Windows exe (GUI) release line is **no longer maintained**: it receives no
+  fixes and is not shipped with new versions. `exe/` (`gui.py`,
+  `ui/index.html`, `tests/`), `tools/build_exe.py` and `tools/exe_entry.py` are
+  kept for reference only and are marked deprecated in place. The plugin/pip and
+  agent-skill lines are unaffected — neither imports nor invokes the GUI, and
+  their published artifacts contain no UI code.
+
 ### Changed
 
 **Three independent release lines**

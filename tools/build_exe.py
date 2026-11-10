@@ -1,5 +1,8 @@
 """打 Windows exe（PyInstaller）。
 
+**（已停止维护）** exe 发行线已停止维护：这个脚本只为参考与复现保留，
+不再随新版本更新，也不保证与当前插件版本兼容。日常使用请走插件与 skill。
+
 用法（必须在构建虚拟环境里跑，见 ``--help`` 尾部说明）::
 
     python tools/build_exe.py               # 默认只打 onefile，并自检

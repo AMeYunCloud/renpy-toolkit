@@ -30,7 +30,7 @@ renpy-toolkit/
 ├── skills/renpy-toolkit/   同功能的 agent skill（DSH 插件形态下由插件自动注册）
 │   ├── SKILL.md            按任务选路表 + 硬规则
 │   └── scripts/rptk.py     启动器（不依赖 cwd 与安装位置）
-├── exe/                    图形界面（独立发行线，不随包分发）
+├── exe/                    图形界面（独立发行线，不随包分发）—（已停止维护）
 │   ├── gui.py              本地 HTTP 服务 + 系统浏览器窗口
 │   ├── ui/index.html       界面
 │   └── tests/              界面的纯逻辑测试（30 例）
@@ -38,8 +38,8 @@ renpy-toolkit/
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
 │   ├── build_portable.py   构建 dist/portable 一键包（含 .zip）
-│   ├── build_exe.py        用 PyInstaller 打 Windows exe（单文件版）并自检
-│   ├── exe_entry.py        exe 入口：无参数开窗口，带参数走命令行
+│   ├── build_exe.py        用 PyInstaller 打 Windows exe（单文件版）并自检（已停止维护）
+│   ├── exe_entry.py        exe 入口：无参数开窗口，带参数走命令行（已停止维护）
 │   ├── check_portable.py   在干净解压副本上验收一键包
 │   ├── check_skill.py      校验 SKILL.md 承诺的 flag 与子命令真实存在
 │   ├── check_readme.py     校验 README 的目录锚点与相对链接
@@ -47,7 +47,7 @@ renpy-toolkit/
 └── dist/                   构建产物（不入库）
     ├── plugin/             供 skill 调用的包目录
     ├── portable/           一键包目录 + renpy-toolkit-<version>.zip
-    └── exe/                Windows exe（onefile/renpy-toolkit.exe）
+    └── exe/                Windows exe（onefile/renpy-toolkit.exe，已停止维护）
 ```
 
 `plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 由 `tools/build_*.py` 生成、被 `.gitignore`
@@ -67,7 +67,7 @@ renpy-toolkit/
 | --- | --- | --- | --- |
 | **插件 / pip** | `renpy-toolkit` 命令 + 便携 zip（`renpy-toolkit-<version>.zip`） | 想在命令行或 DSH 插件里用 | `pip install .`（含 Excel/字体功能装 `[all]`）；或解压便携 zip 双击 `自检.cmd` 后 `python renpy-toolkit.py --help` |
 | **agent skill** | `skills/renpy-toolkit/` | 让 AI 助手自己会做汉化 | 把整个目录放进 skills 目录 |
-| **Windows exe** | `renpy-toolkit-exe-<version>.zip` | 只想点按钮，不碰命令行 | 解压到游戏目录旁边，双击 `renpy-toolkit.exe` |
+| **Windows exe**（已停止维护） | `renpy-toolkit-exe-<version>.zip` | 只想点按钮，不碰命令行 | 解压到游戏目录旁边，双击 `renpy-toolkit.exe` |
 
 
 ```bash
@@ -79,10 +79,14 @@ pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl�
 
 不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。插件与 skill 走的是
 同一份 Python 代码，默认依赖仅标准库；`fontTools` 与 `openpyxl` 是可选能力，缺失时会给出可读的
-`DependencyError` 而不是 import 失败。**exe 是另一条线**：源码在 `exe/`，由 `tools/build_exe.py`
+`DependencyError` 而不是 import 失败。**exe 是另一条线（已停止维护）**：源码在 `exe/`，由 `tools/build_exe.py`
 把这两个可选依赖一起打包，所以那两个功能在 exe 里开箱可用；反过来，插件与 skill 不含也不调用界面代码。
 
-### Windows exe（图形界面）
+### Windows exe（图形界面）—（已停止维护）
+
+> **（已停止维护）** 这条线已停止维护：不再随新版本发布、不再修复。下面保留的是它当初的
+> 形态说明，供参考；要用图形界面需自行 `python tools/build_exe.py --clean` 构建，产物未经
+> 当前版本验证。日常请用上面两条线（插件 / pip 与 agent skill），它们只用命令行。
 
 `python tools/build_exe.py` 产出**单文件版**（需要构建虚拟环境，见脚本头部说明）：
 
@@ -92,7 +96,7 @@ dist/exe/onefile/renpy-toolkit.exe    单文件版，就一个文件，双击即
 
 这条线与其他两条完全独立：界面源码在 `exe/`，产物里不含界面代码，插件与 skill 也从不调用 exe。
 
-界面是一个深色网页，由 exe 起一个**只监听本机 127.0.0.1** 的小服务，再用系统自带的
+界面是一个浅色高对比网页，由 exe 起一个**只监听本机 127.0.0.1** 的小服务，再用系统自带的
 Edge/Chrome 以「app 窗口」模式打开（没有地址栏，看起来就是个桌面程序；不联网、
 不加载任何远程资源）。找不到这两个浏览器时，exe 会提示你改用 `--cli`。
 双击后窗口自己扫「exe 所在目录 + 它的一级子目录」里所有 Ren'Py 游戏
@@ -282,7 +286,7 @@ python tools/build_release.py            # 生成 dist/plugin（含 VERSION 与 
 python tools/build_release.py --verify   # 重新哈希逐个比对
 python tools/build_release.py --sync     # 再用发布版覆盖 plugin/dsh-renpy-toolkit/，两边不许漂移
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
-python tools/build_exe.py --clean        # 生成 dist/exe/onefile 单文件 exe，并跑 --selftest 自检
+python tools/build_exe.py --clean        # 生成 dist/exe/onefile 单文件 exe，并跑 --selftest 自检（已停止维护）
 python tools/check_portable.py           # 在干净解压副本上验收一键包（自检/子命令/退出码/清单/行尾）
 python tools/check_skill.py              # 校验 SKILL.md 里写的每个 flag 与子命令真实存在
 python tools/check_readme.py             # 校验 README 的目录锚点与相对链接

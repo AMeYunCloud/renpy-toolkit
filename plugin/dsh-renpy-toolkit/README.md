@@ -633,7 +633,11 @@ python -m renpy_toolkit font map <game> --emit chinese
 `translate <lang> python:` 块里即可生效，不用改游戏源码。`font map` 只做审计和
 出模板——把哪几行粘贴进 TL 由人决定，它不替你写进游戏。
 
-## 图形界面（独立的 exe 发行线）
+## 图形界面（独立的 exe 发行线）—（已停止维护）
+
+> **（已停止维护）** exe 发行线已停止维护，不再随新版本发布。下面这段只说明它当初
+> 怎么组织；要图形界面需自行构建，且产物未经当前版本验证。插件本身不受影响：它从不
+> import 界面代码，只用命令行。
 
 图形界面**不在这个包里**：源码在仓库顶层 `exe/`（`exe/gui.py` + `exe/ui/index.html`），
 只由 `tools/build_exe.py` 打进 Windows exe。插件与 skill 都只用命令行、从不 import

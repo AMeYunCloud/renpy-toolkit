@@ -29,7 +29,7 @@ renpy-toolkit/
 │       ├── data/ui-terms.tsv   built-in generic UI glossary (167 entries)
 │       └── README.md       full module reference, usage, design constraints
 ├── skills/renpy-toolkit/   the same capability as an agent skill
-├── exe/                    the GUI (separate release line, not shipped in the package)
+├── exe/                    the GUI (separate release line, not shipped) — DEPRECATED
 │   ├── gui.py              local HTTP server + system-browser window
 │   ├── ui/index.html       the interface
 │   └── tests/              30 pure-logic tests for the GUI
@@ -51,7 +51,7 @@ skill, and neither of them contains or invokes the exe.**
 | --- | --- | --- | --- |
 | **Plugin / pip** | `renpy-toolkit` command + portable zip | Command line or the DSH plugin | `pip install .` (add `[all]` for Excel/fonts); or unzip the portable zip and run `python renpy-toolkit.py --help` |
 | **agent skill** | `skills/renpy-toolkit/` | Let an AI assistant do the localization | Drop the whole directory into your skills directory |
-| **Windows exe** | `renpy-toolkit-exe-<version>.zip` | Clicking buttons, no command line | Unzip next to the game folder and double-click `renpy-toolkit.exe` |
+| **Windows exe** (DEPRECATED) | `renpy-toolkit-exe-<version>.zip` | Clicking buttons, no command line | Unzip next to the game folder and double-click `renpy-toolkit.exe` |
 
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
@@ -68,7 +68,14 @@ default; `fontTools` and `openpyxl` are optional and report a readable
 bundles both, so those two features work out of the box there — and conversely the
 packages never contain or call the UI code.
 
-### Windows exe
+### Windows exe (DEPRECATED)
+
+> **DEPRECATED.** This line is no longer maintained: it is not released with new
+> versions and receives no fixes. What follows describes the shape it had, for
+> reference only; to use the GUI you must build it yourself with
+> `python tools/build_exe.py --clean`, and the result is not verified against the
+> current version. Use the two lines above (plugin / pip and agent skill) instead —
+> both are command-line only.
 
 This line is fully independent of the other two: the interface source lives in
 `exe/`, the packages contain no UI code, and neither the plugin nor the skill ever
@@ -174,7 +181,7 @@ Build and verify the release artifacts:
 ```bash
 python tools/build_release.py --verify   # re-hash and compare
 python tools/build_portable.py --zip     # portable zip
-python tools/build_exe.py --clean        # single-file Windows exe
+python tools/build_exe.py --clean        # single-file Windows exe (DEPRECATED)
 python tools/check_portable.py           # acceptance on a clean unzip
 python tools/check_skill.py              # every documented flag really exists
 python tools/check_readme.py             # anchors and relative links

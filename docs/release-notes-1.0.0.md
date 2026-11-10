@@ -34,9 +34,12 @@ A toolkit for Ren'Py authoring and localization. Its core capability is generati
 |---|---|---|
 | **插件 / pip** | 有 Python、想留在命令行 | `pip install renpy-toolkit`（含 Excel/字体装 `[all]`）；或解压便携 zip 跑 `renpy-toolkit.cmd` |
 | **Agent skill** | 给 AI 助手用 | 把 `skills/renpy-toolkit/` 放进 skill 目录 |
-| **Windows exe** | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
+| **Windows exe**（已停止维护） | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
 
 exe 的下载在单独的 Release：**exe-v1.0.0**。（本页只挂插件与 skill 两份产物。）
+
+> **（已停止维护）** exe 发行线已停止维护，不再随新版本发布、不再修复；`exe-v1.0.0`
+> 里的包保持原样，仅供留档。插件与 skill 两条线不受影响。
 
 ### 主要能力
 
@@ -57,7 +60,7 @@ exe 的下载在单独的 Release：**exe-v1.0.0**。（本页只挂插件与 sk
 （`--backup-mode git`），`tl backup list/restore` 可逐次回退；机器上没有 git 时自动
 降级为 `.bak` 并明确提示。
 
-### exe 形态的两点说明
+### exe 形态的两点说明（已停止维护）
 
 界面是「本地小服务 + 系统浏览器窗口」，不需要 WebView2；启动后自动扫描 exe 所在目录
 及其一级子目录里的 Ren'Py 游戏，弹窗让你选一个（0 个、1 个、多个都会弹）。
@@ -113,10 +116,14 @@ and neither of them contains or invokes the exe.
 |---|---|---|
 | **Plugin / pip** | Python available, prefer the CLI | `pip install renpy-toolkit` (`[all]` adds Excel and font support); or unzip the portable zip and run `renpy-toolkit.cmd` |
 | **Agent skill** | AI assistants | Drop `skills/renpy-toolkit/` into the skills directory |
-| **Windows exe** | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
+| **Windows exe** (DEPRECATED) | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
 
 The exe is published as a separate release: **exe-v1.0.0**. This page carries only
 the plugin and skill artifacts.
+
+> **DEPRECATED.** The exe release line is no longer maintained: no new releases and
+> no fixes. The package in `exe-v1.0.0` stays as it was, for archival reference
+> only. The plugin and skill lines are unaffected.
 
 ### Capabilities
 
@@ -142,7 +149,7 @@ glyphs.
 snapshot (`--backup-mode git`), with `tl backup list/restore` to step back; without git
 installed the `git` mode degrades to `.bak` and says so.
 
-### About the exe
+### About the exe (DEPRECATED)
 
 The window is a local HTTP service plus your system browser in `--app` mode — no
 WebView2 required. On start it scans the exe's folder and one level below, and always
