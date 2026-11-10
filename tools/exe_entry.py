@@ -46,7 +46,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # 显式 `--cli` 与任何看起来像选项的参数都按命令行处理：这样同一个 exe
     # 既能双击用，也能被脚本调用，冻结版的 --selftest 还能被构建脚本验收。
-    use_cli = bool(argv) and (argv[0] in ("--cli", "/cli") or argv[0].startswith("-"))
+    # `--ui` 是反向开关：强制走窗口，余下参数交给 gui.main（验收用的
+    # `--ui --port 8731 --no-browser`）。
+    use_gui = bool(argv) and argv[0] in ("--ui", "/ui")
+    use_cli = bool(argv) and not use_gui and (
+        argv[0] in ("--cli", "/cli") or argv[0].startswith("-")
+    )
+    if use_gui:
+        argv = argv[1:]
     if use_cli:
         if argv[0] in ("--cli", "/cli"):
             argv = argv[1:]
@@ -74,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
 
     handle = _ensure_streams()
     try:
-        return gui.main()
+        return gui.main(argv)
     finally:
         if handle is not None:
             handle.close()

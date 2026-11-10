@@ -946,17 +946,34 @@ def make_server(api: Api, port: int = 0) -> tuple[_Server, int]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """起本地服务并开窗口。找不到浏览器时返回 5 并写日志。"""
+    """起本地服务并开窗口。找不到浏览器时返回 5 并写日志。
+
+    ``--port N`` 固定端口、``--no-browser`` 只起服务不拉浏览器 —— 两个都只为
+    自动化验收存在（冻结包在无桌面会话里也能被脚本驱动）。
+    """
+    argv = list(sys.argv[1:] if argv is None else argv)
+    port_wanted = 0
+    open_browser = True
+    for i, item in enumerate(argv):
+        if item == "--port" and i + 1 < len(argv):
+            port_wanted = int(argv[i + 1])
+        elif item == "--no-browser":
+            open_browser = False
     page = html_path()
     if not os.path.isfile(page):
         print("图形界面不可用：找不到界面文件 %s" % page, file=sys.stderr)
         return 3
     try:
         api = Api()
-        srv, port = make_server(api)
+        srv, port = make_server(api, port_wanted)
         url = "http://127.0.0.1:%d/" % port
         thread = threading.Thread(target=srv.serve_forever, daemon=True)
         thread.start()
+        if not open_browser:
+            # 验收模式：只跑服务，等外部脚本调完再被杀掉。
+            print(url, flush=True)
+            thread.join()
+            return 0
         browser = find_browser()
         if not browser:
             api.emit("找不到 Edge 或 Chrome，界面无法打开。", "err")
