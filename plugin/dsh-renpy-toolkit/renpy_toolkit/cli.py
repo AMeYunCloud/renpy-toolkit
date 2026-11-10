@@ -1753,7 +1753,7 @@ def cmd_decompile(args: argparse.Namespace, out: _Out) -> int:
             out.say("  + " + path)
         for path in result.skipped:
             out.say("  = " + path + "  (exists, --overwrite to replace)")
-        out.say(result.summary())
+        out.say(result.text())
         if result.unsupported:
             out.warn(
                 "unsupported nodes: "

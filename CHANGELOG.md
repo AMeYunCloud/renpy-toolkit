@@ -21,7 +21,7 @@ after a Ren'Py upgrade.
 - The GUI moved out of the Python package: `renpy_toolkit/gui.py` and
   `renpy_toolkit/data/ui/index.html` now live in the repository-level `exe/`
   (`exe/gui.py`, `exe/ui/index.html`, `exe/tests/`). The package dropped from 28
-  to 27 modules and its suite from 542 to 519 cases; the GUI's 23 pure-logic
+  to 27 modules and its suite from 542 to 519 cases; the GUI's 30 pure-logic
   tests run separately with `python -m unittest discover -s exe\tests -t exe\tests`.
 - Consequence, and the reason for the move: `dist/plugin`, the portable zip and
   the skill package no longer contain any UI code, and neither the plugin nor the
@@ -30,6 +30,32 @@ after a Ren'Py upgrade.
   on `--paths`.
 - The three artifacts are therefore released independently: plugin/pip, agent
   skill, and the Windows exe.
+
+### Fixed
+
+**Windows exe (GUI)**
+
+- Every button raised `ImportError: attempted relative import with no known
+  parent package` once `gui.py` left the package: two leftovers
+  (`from . import cli`, `from . import __version__`) became
+  `from renpy_toolkit import ...`. This is why most buttons did nothing in the
+  first build of the separate exe line.
+- `decompile dir` always failed at the end with `AttributeError:
+  'DecompileResult' object has no attribute 'summary'` — it now prints
+  `result.text()`. Both the CLI and the GUI were affected.
+- `font check` needs at least one font path, so the button always exited with
+  usage error 2. It now picks fonts out of the game's `game/` tree and explains
+  itself when there are none.
+- `apply` / `port` passed an empty string when no Excel or reference directory
+  had been chosen; they now say so before running anything.
+- The hardcoded-text button relied on the probe dump, which is deleted when
+  `tl gen` finishes; it now rebuilds the ledger from the TL (`--from-tl`).
+- `rpa list` on a game without `.rpa` (and `font map` on a game with no font
+  mappings) exited 1 and was reported as "checks failed"; these are now treated
+  as "nothing to do".
+- The UI is a light, high-contrast theme (the first one was dark-on-dark and
+  hard to read), and the parameters card gained Excel-file and old-translation
+  directory inputs, plus a "use the latest export" button.
 
 ### Added
 

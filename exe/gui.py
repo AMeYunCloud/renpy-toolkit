@@ -241,6 +241,27 @@ class Ctx:
         return os.path.join(self.output_root, "日志")
 
 
+FONT_SUFFIXES = (".ttf", ".otf", ".ttc")
+
+
+def find_fonts(root: str, limit: int = 6) -> list[str]:
+    """列出游戏目录下的字体文件。
+
+    `font check` 至少需要一个字体路径；界面上让用户去填路径太繁琐，
+    所以默认从 `game/` 里挑前几个字体做覆盖率检查。
+    """
+    game = os.path.join(root, "game")
+    base = game if os.path.isdir(game) else root
+    found: list[str] = []
+    for cur, dirs, files in os.walk(base):
+        dirs[:] = [d for d in dirs if d not in ("cache", "saves", "__pycache__")]
+        for name in files:
+            if name.lower().endswith(FONT_SUFFIXES):
+                found.append(os.path.join(cur, name))
+    found.sort()
+    return found[:limit]
+
+
 def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]:
     """把界面动作翻译成命令行参数。
 
@@ -258,27 +279,32 @@ def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]
     if key == "verify":
         return ["tl", "verify", tl, "--max-items", "300"], []
     if key == "table":
-        # 导出表格没有 dry-run：目标文件落到数据目录，覆盖前由界面确认。
-        out = ctx.xlsx or os.path.join(ctx.export_dir, "%s.xlsx" % lang)
+        # 导出固定落到数据目录的“导出”子目录；回填时再选文件（可用「用最新导出的」）。
+        out = os.path.join(ctx.export_dir, "%s.xlsx" % lang)
         return None, [["tl", "table", tl, "-o", out, "--format", "xlsx", "--language", lang]]
     if key == "apply":
+        if not ctx.xlsx:
+            raise FileNotFoundError("还没有选择要回填的 Excel：%s" % ctx.export_dir)
         return (
-            ["tl", "apply", tl, ctx.xlsx or ""],
-            [["tl", "apply", tl, ctx.xlsx or "", "--write"]],
+            ["tl", "apply", tl, ctx.xlsx],
+            [["tl", "apply", tl, ctx.xlsx, "--write"]],
         )
     if key == "port":
+        if not ctx.reference:
+            raise FileNotFoundError("还没有选择旧译本目录：%s" % ctx.root)
         return (
-            ["tl", "port", tl, ctx.reference or ""],
-            [["tl", "port", tl, ctx.reference or "", "--write", "--show-skipped"]],
+            ["tl", "port", tl, ctx.reference],
+            [["tl", "port", tl, ctx.reference, "--write", "--show-skipped"]],
         )
     if key == "glossary":
         return ["tl", "glossary", "check", tl, "--ui-terms"], []
     if key == "hardcoded":
-        # 先建清单再打标记。两步都是写盘动作，一起确认一次。
+        # 先建清单再打标记。清单从已生成的 TL 反推（--from-tl），
+        # 因为 tl gen 的探针 dump 落在临时目录里、跑完就清掉了。
         return (
-            ["tl", "hardcoded", "scan", tl, "--language", lang],
+            ["tl", "hardcoded", "scan", tl, "--language", lang, "--from-tl"],
             [
-                ["tl", "hardcoded", "scan", tl, "--language", lang, "--write"],
+                ["tl", "hardcoded", "scan", tl, "--language", lang, "--from-tl", "--write"],
                 ["tl", "hardcoded", "apply", tl, "--language", lang, "--write"],
             ],
         )
@@ -287,7 +313,11 @@ def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]
     if key == "backup_save":
         return None, [["tl", "backup", "save", tl, "--message", "GUI 手动快照", "--write"]]
     if key == "font_check":
-        return ["font", "check", "--tl", tl, *ctx.fonts], []
+        # font check 要求至少一个字体位置参数；用户没指定时从游戏目录里找。
+        fonts = list(ctx.fonts) or find_fonts(root)
+        if not fonts:
+            raise FileNotFoundError("没有找到字体文件（.ttf/.otf/.ttc）：%s" % ctx.game_dir)
+        return ["font", "check", "--tl", tl, *fonts], []
     if key == "font_map":
         return ["font", "map", root, "--emit", lang], []
     if key == "rpa_list":
@@ -357,6 +387,8 @@ def explain_error(exc: BaseException) -> tuple[str, str]:
 
 # 消息特征 → 下一步。写成表而不是一串 if，是因为这些文案会随实测不断加。
 _HINT_RULES: tuple[tuple[str, str], ...] = (
+    ("还没有选择", "先在「参数」里选好要用的 Excel 或旧译本目录，再点这个按钮。"),
+    ("没有找到字体文件", "把 .ttf/.otf/.ttc 放进游戏的 game/ 目录，或在「字体」里填上字体路径。"),
     ("找不到可用的 git", "装 Git 并把 git.exe 加进 PATH；或者把备份方式改成 bak。"),
     ("没有找到 .rpa", "把目标指到含 game\\ 子目录的游戏根目录，或直接指某一个 .rpa 文件。"),
     ("Several languages", "在「目标语言」里填具体语言名（例如 chinese）再试一次。"),
@@ -364,6 +396,19 @@ _HINT_RULES: tuple[tuple[str, str], ...] = (
     ("does not exist", "确认路径存在，或先点「重新扫描」。"),
     ("No such file", "确认路径存在，或先点「重新扫描」。"),
 )
+
+
+# 退出码 1 里有几种其实不是"检查没过"，而是"没东西可处理"。
+_INFORMATIONAL: tuple[str, ...] = (
+    "没有找到 .rpa",
+    "nothing to emit",
+)
+
+
+def _informational(text: str) -> bool:
+    """命令以 1 退出但语义只是"没有可处理的内容"。"""
+    body = text or ""
+    return any(needle in body for needle in _INFORMATIONAL)
 
 
 def output_dirs(ctx: Ctx) -> list[str]:
@@ -476,6 +521,8 @@ class Api:
         self.backup_mode = str(self.config.get("backup_mode") or "bak")
         if self.backup_mode not in BACKUP_MODES:
             self.backup_mode = "bak"
+        self.xlsx = str(self.config.get("xlsx") or "")
+        self.reference = str(self.config.get("reference") or "")
         self.logs: list[tuple[str, str]] = []
         self._log_lock = threading.Lock()
         self._busy = threading.Lock()
@@ -496,7 +543,13 @@ class Api:
         return os.path.join(self.base, OUTPUT_DIR_NAME)
 
     def _ctx(self) -> Ctx:
-        return Ctx(root=self.game.root if self.game else "", language=self.language, outdir=self.outdir)
+        return Ctx(
+            root=self.game.root if self.game else "",
+            language=self.language,
+            outdir=self.outdir,
+            xlsx=self.xlsx or None,
+            reference=self.reference or None,
+        )
 
     def _prepare_dirs(self) -> None:
         for path in output_dirs(self._ctx()):
@@ -518,6 +571,8 @@ class Api:
             "backup_mode": self.backup_mode,
             "scan_info": scan_info,
             "outdir": self.outdir,
+            "xlsx": self.xlsx,
+            "reference": self.reference,
             "groups": actions_by_group(),
         }
 
@@ -598,13 +653,40 @@ class Api:
             msg, hint = explain_error(exc)
             return {"error": msg, "hint": hint}
 
-    def save_prefs(self, language: str, backup_mode: str) -> dict:
+    def save_prefs(
+        self,
+        language: str,
+        backup_mode: str,
+        xlsx: str | None = None,
+        reference: str | None = None,
+    ) -> dict:
         self.language = (language or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
         self.backup_mode = backup_mode if backup_mode in BACKUP_MODES else "bak"
+        if xlsx is not None:
+            self.xlsx = xlsx.strip()
+            self.config["xlsx"] = self.xlsx
+        if reference is not None:
+            self.reference = reference.strip()
+            self.config["reference"] = self.reference
         self.config["language"] = self.language
         self.config["backup_mode"] = self.backup_mode
         err = save_config(self.base, self.config)
         return {"ok": True, "error": err} if err else {"ok": True}
+
+    def suggest_xlsx(self) -> dict:
+        """把数据目录里最新的 xlsx 路径回填到界面（导出后直接能回填）。"""
+        folder = os.path.join(self.outdir, "导出")
+        try:
+            names = [n for n in os.listdir(folder) if n.lower().endswith(".xlsx")]
+        except OSError:
+            names = []
+        if not names:
+            return {"path": "", "hint": "数据目录里还没有 xlsx，先点「导出 Excel 表格」。"}
+        newest = max(names, key=lambda n: os.path.getmtime(os.path.join(folder, n)))
+        self.xlsx = os.path.join(folder, newest)
+        self.config["xlsx"] = self.xlsx
+        save_config(self.base, self.config)
+        return {"path": self.xlsx}
 
     def open_outdir(self) -> dict:
         try:
@@ -652,11 +734,16 @@ class Api:
             if not argv_list:
                 return {"ok": True, "code": 0, "hint": "这条命令不需要写文件。"}
             worst = 0
+            last_text = ""
             for argv in argv_list:
                 code, _text = self._invoke(argv, ctx)
+                last_text = _text
                 if code != 0:
                     worst = code
                     break
+            if worst and _informational(last_text):
+                # 例如游戏没有 .rpa 归档、工程没有硬编码字体：不是错误，只是没内容可处理。
+                return {"ok": True, "code": 0, "hint": "没有可处理的内容（见日志）。"}
             return {"ok": worst == 0, "code": worst, "hint": EXIT_HINTS.get(worst, "")}
         except Exception as exc:
             msg, hint = explain_error(exc)
@@ -685,7 +772,7 @@ class Api:
         最有价值的是**最后几行**（错误与退出码），而 `rpa list` 这种会吐两万行，
         逐行推到页面上只会把错误淹没。
         """
-        from . import cli
+        from renpy_toolkit import cli
 
         full = ["--backup-mode", self.backup_mode] + list(argv)
         os.environ["RTK_SCRATCH"] = ctx.scratch_dir
@@ -752,7 +839,7 @@ class Api:
 
     # 方法白名单：只有这里列出的名字能被页面调用。
     EXPOSED = (
-        "bootstrap", "rescan", "scan", "select", "save_prefs",
+        "bootstrap", "rescan", "scan", "select", "save_prefs", "suggest_xlsx",
         "open_outdir", "open_game", "run_action",
     )
 
@@ -772,7 +859,7 @@ def _target_of(argv: list[str]) -> str:
 
 def _version() -> str:
     try:
-        from . import __version__
+        from renpy_toolkit import __version__
 
         return str(__version__)
     except Exception:

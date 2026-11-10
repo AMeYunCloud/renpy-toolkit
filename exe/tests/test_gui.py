@@ -23,6 +23,7 @@ for _path in (os.path.join(_ROOT, "plugin", "dsh-renpy-toolkit"), _EXE):
         sys.path.insert(0, _path)
 
 import gui  # noqa: E402  （必须在 sys.path 调整之后）
+from tests import _util  # noqa: E402
 
 ROOT = os.path.join("C:\\", "games", "TheGame")
 TL = os.path.join(ROOT, "game", "tl", "chinese")
@@ -180,6 +181,53 @@ class TestActionMapping(unittest.TestCase):
         self.assertTrue(any("反编译" in el for el in preview), preview)
         self.assertTrue(any("renpy-toolkit-数据" in el or "outdir" in el.lower() for el in preview)
                         or os.path.basename(str(preview[-1])) == "反编译", preview)
+
+    def test_apply_without_a_chosen_xlsx_is_a_readable_error(self) -> None:
+        with self.assertRaises(FileNotFoundError) as cm:
+            gui.build_action("apply", self.ctx())
+        self.assertIn("还没有选择", str(cm.exception))
+
+    def test_port_without_a_reference_dir_is_a_readable_error(self) -> None:
+        with self.assertRaises(FileNotFoundError) as cm:
+            gui.build_action("port", self.ctx())
+        self.assertIn("还没有选择", str(cm.exception))
+
+    def test_hardcoded_builds_its_ledger_from_the_tl(self) -> None:
+        # 探针 dump 落在临时目录、跑完就删，所以清单必须从 TL 反推。
+        preview, writes = gui.build_action("hardcoded", self.ctx())
+        self.assertIn("--from-tl", preview)
+        self.assertIn("--from-tl", writes[0])
+
+    def test_table_always_exports_into_the_data_dir(self) -> None:
+        # 导出目标固定，避免用户填过的 xlsx 被导出覆盖。
+        ctx = self.ctx(outdir="D:/out", xlsx="C:/picked.xlsx")
+        _preview, writes = gui.build_action("table", ctx)
+        argv = writes[0]
+        self.assertEqual(argv[argv.index("-o") + 1], os.path.join(ctx.export_dir, "chinese.xlsx"))
+        self.assertNotIn("C:/picked.xlsx", argv)
+
+    def test_font_check_finds_fonts_in_the_game(self) -> None:
+        tmp = _util.tempdir_for(self)
+        game = os.path.join(tmp, "game")
+        os.makedirs(os.path.join(game, "fonts"))
+        font = os.path.join(game, "fonts", "x.ttf")
+        open(font, "wb").close()
+        self.assertEqual(gui.find_fonts(tmp), [font])
+        preview, _writes = gui.build_action("font_check", self.ctx(root=tmp))
+        self.assertIn(font, preview)
+
+    def test_font_check_without_any_font_explains_itself(self) -> None:
+        tmp = _util.tempdir_for(self)
+        with self.assertRaises(FileNotFoundError) as cm:
+            gui.build_action("font_check", self.ctx(root=tmp))
+        msg, hint = gui.explain_error(cm.exception)
+        self.assertIn("没有找到字体文件", msg)
+        self.assertIn("game", hint)
+
+    def test_missing_archive_is_not_reported_as_a_failure(self) -> None:
+        self.assertTrue(gui._informational("error: 没有找到 .rpa 归档：X"))
+        self.assertTrue(gui._informational("error: nothing to emit: no font mappings"))
+        self.assertFalse(gui._informational("error: 3 error(s), 1 warning(s)"))
 
     def test_unknown_action_raises(self) -> None:
         with self.assertRaises(KeyError):

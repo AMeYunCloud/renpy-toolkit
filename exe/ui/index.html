@@ -5,85 +5,85 @@
 <title>Ren'Py 汉化工具包</title>
 <style>
   :root{
-    --bg:#12141a; --panel:#1a1d26; --panel2:#22262f; --line:#2c3140;
-    --text:#e6e9f0; --dim:#9aa3b5; --accent:#4f8cff; --accent2:#3ad29f;
-    --warn:#ffb020; --err:#ff5d5d; --ok:#3ad29f;
+    --bg:#f5f7fa; --panel:#ffffff; --panel2:#eef1f6; --line:#d5dbe4;
+    --text:#1b1f27; --dim:#5a6371; --accent:#1f6feb; --accent2:#1a7f4b;
+    --warn:#8a5300; --err:#b42318; --ok:#1a7f4b;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--text);
-    font:14px/1.55 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+    font:15px/1.6 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
     display:flex;flex-direction:column;overflow:hidden}
-  header{display:flex;align-items:center;gap:14px;padding:14px 18px;
-    background:linear-gradient(180deg,#1b1f29,#171a22);border-bottom:1px solid var(--line)}
-  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.3px}
-  header .ver{color:var(--dim);font-size:12px}
+  header{display:flex;align-items:center;gap:14px;padding:14px 20px;
+    background:#ffffff;border-bottom:1px solid var(--line);box-shadow:0 1px 3px rgba(16,24,40,.06)}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;color:#101828}
+  header .ver{color:var(--dim);font-size:13px}
   header .spacer{flex:1}
-  .btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);
-    border-radius:8px;padding:7px 13px;cursor:pointer;font-size:13px;transition:.15s}
-  .btn:hover{background:#2b3140;border-color:#3b435a}
+  .btn{background:#ffffff;color:var(--text);border:1px solid #c7cfda;
+    border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;font-weight:500;transition:.15s}
+  .btn:hover{background:#f2f6fd;border-color:#9fb4d6;color:#0f4c9c}
   .btn:active{transform:translateY(1px)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-  .btn.primary:hover{background:#5f97ff}
-  .btn.ghost{background:transparent}
-  .btn:disabled{opacity:.45;cursor:not-allowed}
-  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 380px;min-height:0}
-  .left{padding:16px 18px;overflow:auto;border-right:1px solid var(--line)}
-  .right{display:flex;flex-direction:column;min-height:0;background:#0f1116}
+  .btn.primary:hover{background:#1a5fd0;color:#fff}
+  .btn.ghost{background:#ffffff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 400px;min-height:0}
+  .left{padding:18px 20px;overflow:auto;border-right:1px solid var(--line)}
+  .right{display:flex;flex-direction:column;min-height:0;background:#ffffff;border-left:1px solid var(--line)}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
-    padding:14px 16px;margin-bottom:14px}
-  .card h2{font-size:13px;margin:0 0 10px;color:var(--dim);font-weight:600;
-    letter-spacing:.6px;text-transform:uppercase}
+    padding:16px 18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+  .card h2{font-size:15px;margin:0 0 12px;color:#101828;font-weight:700;letter-spacing:.2px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  select,input[type=text]{background:#0e1117;color:var(--text);border:1px solid var(--line);
-    border-radius:8px;padding:8px 10px;font-size:13px;min-width:0}
+  select,input[type=text]{background:#ffffff;color:var(--text);border:1px solid #c7cfda;
+    border-radius:8px;padding:9px 11px;font-size:14px;min-width:0}
+  select:focus,input[type=text]:focus{outline:2px solid #bcd3f7;border-color:var(--accent)}
   select{flex:1;min-width:240px}
   input[type=text]{width:130px}
-  .games{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-  .game{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);
-    border-radius:10px;cursor:pointer;background:#151922;transition:.15s}
-  .game:hover{border-color:#3b435a;background:#1a1f2a}
-  .game.active{border-color:var(--accent);background:#17233b;box-shadow:0 0 0 1px var(--accent) inset}
-  .game .nm{font-weight:600}
-  .game .pt{color:var(--dim);font-size:12px;word-break:break-all}
-  .game .tag{font-size:11px;padding:2px 7px;border-radius:20px;background:#26303f;color:var(--dim);white-space:nowrap}
-  .game .tag.ok{background:#123526;color:var(--ok)}
-  .game .tag.no{background:#3a2020;color:var(--warn)}
-  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
-  .act{text-align:left;background:#151922;border:1px solid var(--line);border-radius:10px;
-    padding:11px 13px;cursor:pointer;transition:.15s}
-  .act:hover{border-color:var(--accent);background:#17233b}
-  .act:disabled{opacity:.5;cursor:not-allowed}
-  .act .l{font-weight:600;margin-bottom:3px}
-  .act .h{color:var(--dim);font-size:12px;line-height:1.4}
-  .gtitle{grid-column:1/-1;color:var(--dim);font-size:12px;margin-top:6px;letter-spacing:.5px}
-  .right header{background:#12151c;border-bottom:1px solid var(--line);padding:10px 14px;
-    font-size:12px;color:var(--dim);display:flex;align-items:center;gap:8px}
-  #log{flex:1;overflow:auto;margin:0;padding:12px 14px;
-    font:12.5px/1.6 Consolas,"Cascadia Mono",monospace;white-space:pre-wrap;word-break:break-word}
+  .games{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+  .game{display:flex;gap:10px;align-items:center;padding:11px 13px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;background:#fbfcfe;transition:.15s}
+  .game:hover{border-color:#9fb4d6;background:#f4f8ff}
+  .game.active{border-color:var(--accent);background:#eaf2ff;box-shadow:0 0 0 1px var(--accent) inset}
+  .game .nm{font-weight:700;color:#101828}
+  .game .pt{color:var(--dim);font-size:13px;word-break:break-all}
+  .game .tag{font-size:12px;padding:2px 8px;border-radius:20px;background:#eef1f6;color:#4a5464;white-space:nowrap}
+  .game .tag.ok{background:#e3f6ec;color:var(--ok)}
+  .game .tag.no{background:#fdf1e0;color:var(--warn)}
+  .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:11px}
+  .act{text-align:left;background:#ffffff;color:var(--text);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;cursor:pointer;transition:.15s;font-family:inherit}
+  .act:hover{border-color:var(--accent);background:#f4f8ff}
+  .act:disabled{opacity:.55;cursor:not-allowed;background:#f7f8fa}
+  .act .l{font-weight:700;margin-bottom:3px;color:#101828;font-size:14px}
+  .act .h{color:var(--dim);font-size:13px;line-height:1.45}
+  .gtitle{grid-column:1/-1;color:#344054;font-size:14px;font-weight:700;margin-top:10px}
+  .right header{background:#ffffff;border-bottom:1px solid var(--line);padding:11px 15px;
+    font-size:13px;color:#344054;font-weight:600;display:flex;align-items:center;gap:8px}
+  #log{flex:1;overflow:auto;margin:0;padding:13px 15px;background:#fbfcfe;color:#1b1f27;
+    font:13px/1.65 Consolas,"Cascadia Mono",monospace;white-space:pre-wrap;word-break:break-word}
   #log .err{color:var(--err)}
   #log .warn{color:var(--warn)}
   #log .ok{color:var(--ok)}
-  #log .cmd{color:#7fb0ff}
-  #log .dim{color:#6b7488}
-  .mask{position:fixed;inset:0;background:rgba(6,8,12,.72);display:none;
+  #log .cmd{color:#0f4c9c;font-weight:600}
+  #log .dim{color:#6b7480}
+  .mask{position:fixed;inset:0;background:rgba(16,24,40,.45);display:none;
     align-items:center;justify-content:center;z-index:50}
   .mask.show{display:flex}
   .dialog{width:min(780px,92vw);max-height:82vh;display:flex;flex-direction:column;
     background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;
-    box-shadow:0 20px 60px rgba(0,0,0,.5)}
-  .dialog h3{margin:0;padding:15px 18px;font-size:15px;border-bottom:1px solid var(--line)}
-  .dialog .body{padding:14px 18px;overflow:auto}
-  .dialog pre{background:#0d1016;border:1px solid var(--line);border-radius:8px;padding:11px 13px;
-    font:12.5px/1.6 Consolas,monospace;white-space:pre-wrap;word-break:break-word;margin:8px 0 0}
+    box-shadow:0 20px 60px rgba(16,24,40,.25)}
+  .dialog h3{margin:0;padding:16px 18px;font-size:16px;border-bottom:1px solid var(--line);color:#101828}
+  .dialog .body{padding:14px 18px;overflow:auto;color:var(--text)}
+  .dialog pre{background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    font:13px/1.65 Consolas,monospace;white-space:pre-wrap;word-break:break-word;margin:8px 0 0;color:#1b1f27}
   .dialog .foot{display:flex;gap:10px;justify-content:flex-end;padding:13px 18px;
     border-top:1px solid var(--line)}
   .toast{position:fixed;left:50%;top:20px;transform:translateX(-50%);
-    max-width:min(760px,92vw);background:#3a1b1b;color:#ffd9d9;border:1px solid #7a3030;
-    padding:11px 16px;border-radius:10px;display:none;z-index:60;box-shadow:0 12px 30px rgba(0,0,0,.45)}
+    max-width:min(760px,92vw);background:#fdecea;color:#7a1c14;border:1px solid #f0b3ac;
+    padding:12px 17px;border-radius:10px;display:none;z-index:60;box-shadow:0 12px 30px rgba(16,24,40,.18)}
   .toast.show{display:block}
-  .empty{color:var(--dim);padding:16px;text-align:center;border:1px dashed var(--line);border-radius:10px}
-  .pulse{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);
+  .empty{color:var(--dim);padding:18px;text-align:center;border:1px dashed #c7cfda;border-radius:10px;background:#fbfcfe}
+  .pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);
     animation:p 1s infinite alternate}
   @keyframes p{to{opacity:.25}}
 </style>
@@ -122,6 +122,16 @@
           <option value="none">none（不备份）</option>
         </select>
         <span class="ver">导出与备份都落在数据目录，不写进游戏</span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="ver">Excel 文件</label>
+        <input type="text" id="xlsx" placeholder="回填译文用：留空则用「导出」目录里最新的 xlsx" spellcheck="false" style="flex:1;min-width:420px;width:auto">
+        <button class="btn ghost" id="btnPickXlsx" style="flex:0 0 auto">用最新导出的</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label class="ver">旧译本目录</label>
+        <input type="text" id="ref" placeholder="搬运旧译文用：填上一版 game\tl\chinese 的路径" spellcheck="false" style="flex:1;min-width:420px;width:auto">
+        <span class="ver">只在这两个按钮需要</span>
       </div>
     </div>
 
@@ -257,6 +267,8 @@ function applyBoot(r) {
   if (r.backup_mode) $('backup').value = r.backup_mode;
   if (r.scan_info) $('scanInfo').textContent = r.scan_info;
   if (r.outdir) $('logTitle').textContent = '运行日志 · ' + r.outdir;
+  if (r.xlsx !== undefined) $('xlsx').value = r.xlsx || '';
+  if (r.reference !== undefined) $('ref').value = r.reference || '';
   renderGames();
   if (r.groups) renderActions(r.groups);
 }
@@ -318,8 +330,21 @@ $('manual').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnUs
 $('btnOut').onclick = () => api('open_outdir');
 $('btnGame').onclick = () => api('open_game');
 $('btnClear').onclick = () => { $('log').textContent = ''; };
-$('lang').onchange = () => api('save_prefs', $('lang').value, $('backup').value);
-$('backup').onchange = () => api('save_prefs', $('lang').value, $('backup').value);
+function savePrefs() {
+  return api('save_prefs', $('lang').value, $('backup').value, $('xlsx').value, $('ref').value);
+}
+$('lang').onchange = savePrefs;
+$('backup').onchange = savePrefs;
+$('xlsx').onchange = savePrefs;
+$('ref').onchange = savePrefs;
+$('btnPickXlsx').onclick = async () => {
+  const r = await api('suggest_xlsx');
+  if (r.error) { toast(r.error); return; }
+  if (!r.path) { toast(r.hint || '数据目录里还没有 xlsx。'); return; }
+  $('xlsx').value = r.path;
+  await savePrefs();
+  push('已填入：' + r.path, 'dim');
+};
 
 (async function boot() {
   try {

@@ -32,7 +32,7 @@ renpy-toolkit/
 ├── exe/                    the GUI (separate release line, not shipped in the package)
 │   ├── gui.py              local HTTP server + system-browser window
 │   ├── ui/index.html       the interface
-│   └── tests/              23 pure-logic tests for the GUI
+│   └── tests/              30 pure-logic tests for the GUI
 ├── docs/                   reference notes (engine facts, format specs)
 ├── tools/                  build_release / build_portable / build_exe / check_*
 └── dist/                   build output (not committed)

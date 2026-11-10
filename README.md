@@ -33,7 +33,7 @@ renpy-toolkit/
 ├── exe/                    图形界面（独立发行线，不随包分发）
 │   ├── gui.py              本地 HTTP 服务 + 系统浏览器窗口
 │   ├── ui/index.html       界面
-│   └── tests/              界面的纯逻辑测试（23 例）
+│   └── tests/              界面的纯逻辑测试（30 例）
 ├── docs/                   参考笔记（引擎事实、格式规范）
 ├── tools/
 │   ├── build_release.py    构建 dist/plugin 并写 MANIFEST.sha256
