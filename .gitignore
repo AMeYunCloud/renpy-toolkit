@@ -114,3 +114,5 @@ _dist/release-notes-*.md
 
 /_MEI*/
 /_t/
+
+/renpy-toolkit-*.log
