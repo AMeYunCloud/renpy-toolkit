@@ -45,9 +45,12 @@
     "url": "https://github.com/AMeYunCloud/renpy-toolkit/issues"
   },
   "homepage": "https://github.com/AMeYunCloud/renpy-toolkit#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.5",
-    "@deepseek-ai/dsh-skill": ">=0.2.1-rc.3",
-    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.3"
+    "@deepseek-ai/dsh-skill": ">=0.2.1-rc.3 <0.2.2 || >=0.2.2-rc.1",
+    "@deepseek-ai/dsh-tools": ">=0.2.1-rc.3 <0.2.2 || >=0.2.2-rc.1"
   }
 }
