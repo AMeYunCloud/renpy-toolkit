@@ -278,6 +278,15 @@ wrote 53 file(s)            耗时 19.6s
 | [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门参考 |
 | [`docs/release-notes-1.0.0.md`](docs/release-notes-1.0.0.md) | 1.0.0 发布说明（中英双语） |
 
+## 与其他工具共存
+
+这四条产物可以和别的工具放在同一个工程里：与官方 `renpy translate` 用同一份 TL 格式
+（可以互相补充、`tl verify` 能校验官方产物）；不调用 `unrpyc`/`rpatool`；`tl gen --write`
+只补缺失文件、不改已有译文；备份默认只写 `.bak`，用 `--backup-mode git` 时写的是影子仓库
+（`<tl>/.renpy-toolkit.git` 或 `RTK_BACKUP_DIR`），不碰你自己的 git 仓库。所有子命令
+默认 dry-run，且只写 `game/tl/<语言>/`。详见
+[plugin/dsh-renpy-toolkit/README.md](plugin/dsh-renpy-toolkit/README.md#与其他工具共存)。
+
 ## 开发
 
 ```bash

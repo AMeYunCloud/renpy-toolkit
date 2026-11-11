@@ -659,6 +659,30 @@ python tools/build_exe.py --clean      # 打单文件 exe，并跑 --selftest �
 python tools/build_exe.py --verify     # 只自检已有产物
 ```
 
+## 与其他工具共存
+
+一套汉化流程里往往同时跑着别的工具：Ren'Py 官方 `translate` 命令、`unrpyc`/`rpatool`
+这类社区脚本、译者手写的 TL、以及用户自己的 git 仓库。这个包按下面几条规矩工作，
+所以可以和它们放在同一个工程里而互不踩踏。
+
+| 别的工具 / 情况 | 本工具怎么做 |
+|---|---|
+| 官方 `renpy translate <语言>` | 我们生成的 `tl/<语言>/*.rpy` 与官方产物**同一格式**（`translate <lang> <id>:` + 注释镜像行），官方命令只会补它认为缺的，`tl verify` 也能直接校验官方产物；两边混在一个语言目录里不冲突。 |
+| `unrpyc` / `rpatool` 等社区脚本 | 我们**不调用**它们，反编译与归档读写都是独立实现（`decompile.py` / `rpa.py`）。它们生成的文件我们只读；`rpa pack` 覆盖已有归档前会按 `--backup-mode` 先备份。 |
+| 译者手写 / 别的汉化工程的 TL | `tl gen --write` **只补缺失文件、不改已有文件**；要重排或加 Event Index 用 `tl sort --write`，写之前先备份。 |
+| 用户自己的 git 仓库 | 默认 `bak` 模式只写 `<文件>.bak`，完全不碰 git；`--backup-mode git` 用的是**影子仓库**（`<tl>/.renpy-toolkit.git`，或用 `RTK_BACKUP_DIR` 指到别处），**不会往你的仓库里 commit**。 |
+| 已经存在 `.bak` | 我们的 `.bak` 语义就是「被覆盖前的旧内容」，同一文件重复写会覆盖同名 `.bak`（只留最近一份）。想保留多版本历史就切 `--backup-mode git`，它每次写都是一个可回滚的快照。 |
+| 临时目录冲突 | 临时目录名固定（`.renpy-toolkit-gen` / `renpy-toolkit-数据`），`--clean-scratch` 只删自己的，不会清别人的目录。 |
+| 多个语言 / 多套汉化 | 一个语言一个目录，`--language` 显式指定；`tl stats`/`verify` 不会跨语言混算。 |
+
+贯穿所有子命令的三条硬约束（都有测试盯着）：
+
+1. **默认 dry-run**：不给 `--write` 就只打印将要做什么，一个字节都不写。
+2. **不覆盖不是自己产出的文件**：`scaffold` 遇到已存在目标直接报错；`decompile` 默认
+   跳过已存在的 `.rpy`（要 `--overwrite`）；`contextmap` 只覆盖带
+   `# renpy-toolkit: context patch` 标记的文件。
+3. **只写 `game/tl/<语言>/`**，不动 `game/` 里的引擎文件，也不删 `.rpyc`。
+
 ## 开发
 
 ### 依赖

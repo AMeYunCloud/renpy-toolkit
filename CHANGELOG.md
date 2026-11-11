@@ -32,7 +32,7 @@ after a Ren'Py upgrade.
 - The GUI moved out of the Python package: `renpy_toolkit/gui.py` and
   `renpy_toolkit/data/ui/index.html` now live in the repository-level `exe/`
   (`exe/gui.py`, `exe/ui/index.html`, `exe/tests/`). The package dropped from 28
-  to 27 modules and its suite from 542 to 519 cases; the GUI's 30 pure-logic
+  to 27 modules and its suite from 542 to 531 cases; the GUI's 39 pure-logic
   tests run separately with `python -m unittest discover -s exe\tests -t exe\tests`.
 - Consequence, and the reason for the move: `dist/plugin`, the portable zip and
   the skill package no longer contain any UI code, and neither the plugin nor the
@@ -41,6 +41,18 @@ after a Ren'Py upgrade.
   on `--paths`.
 - The three artifacts are therefore released independently: plugin/pip, agent
   skill, and the Windows exe.
+
+**Coexistence with other tools**
+
+- A project usually already has other translators in it: the official
+  `renpy translate` command, `unrpyc`/`rpatool`, hand-written `.rpy` files, the
+  user's own git repository. The toolkit is documented (README "与其他工具共存")
+  to work inside such a project: generated `.rpy` uses exactly the official format,
+  `tl gen --write` only adds files that are missing, `--backup-mode git` writes to a
+  shadow repository (`<tl>/.renpy-toolkit.git`, or `RTK_BACKUP_DIR`) and never
+  commits to the user's repository, temporary directories have fixed names and
+  `--clean-scratch` only removes its own, and every subcommand is dry-run unless
+  `--write` is given.
 
 ### Added
 
@@ -124,6 +136,10 @@ after a Ren'Py upgrade.
   game folder (same level as it, or one level above).
 - `--no-browser` now waits on the same stop event as `--tab`, so an automated
   check can shut the server down instead of being killed.
+- `rpa list` / `rpa extract` only ever looked at one archive, so a game shipping
+  `archive.rpa` **and** `archive2.rpa` failed with "no such entry" for everything
+  in the second file. Archives are now discovered and merged (`MultiArchive`), and
+  `rpa list` reports how many archives it spans.
 
 ### Added
 
