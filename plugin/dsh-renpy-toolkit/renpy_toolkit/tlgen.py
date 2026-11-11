@@ -1027,6 +1027,19 @@ class GenerateResult:
     the details.
     """
 
+    hardcoded_strings: int = 0
+    """How many ``strings`` entries came from a literal that is **not**
+    ``_()``-wrapped -- a hardcoded label, button caption, tooltip and so on.
+
+    These are the texts the engine itself would never translate (nothing marks
+    them), so supplying a ``strings`` entry is the only way to reach them
+    without editing the game.  They are included by default; ``--no-hardcoded``
+    drops them and this count becomes 0 with :attr:`hardcoded_skipped` set.
+    """
+
+    hardcoded_skipped: int = 0
+    """How many hardcoded entries were dropped because ``--no-hardcoded``."""
+
     fstring_rows: list[dict] = field(default_factory=list)
     """``{file, line, how, screen, text}`` for each unreachable f-string."""
 
@@ -1058,10 +1071,17 @@ class GenerateResult:
     """
 
     def summary(self) -> str:
-        return (
+        text = (
             f"{self.language}: {self.blocks} translate block(s), "
             f"{self.strings} string(s) in {self.string_files} file(s)"
         )
+        if self.hardcoded_strings:
+            text += f"; 硬编码文本块 {self.hardcoded_strings} 条（已收入 strings）"
+        elif self.hardcoded_skipped:
+            text += f"; 硬编码文本块 0 条（按 --no-hardcoded 跳过 {self.hardcoded_skipped} 条）"
+        else:
+            text += "; 硬编码文本块 0 条"
+        return text
 
 
 #: Language key used for the probe run. Nothing is ever loaded under it, so
@@ -1679,6 +1699,9 @@ def generate_tl(
     with_strings: bool = True,
     restore_sources: bool = True,
     identifiers: bool = False,
+    hardcoded: bool = True,
+    sections: bool = False,
+    index: bool = False,
     dev_tool_dirs: tuple[str, ...] | None = None,
     clean_scratch: bool = False,
     timeout: int = 1800,
@@ -1698,6 +1721,18 @@ def generate_tl(
 
     *identifiers* keeps ``snake_case`` tokens that the default filter drops as
     label names. See :func:`looks_translatable`.
+
+    *hardcoded* (default true, recommended) keeps literals that are not
+    ``_()``-wrapped -- UI labels, tooltips, item names written straight into a
+    ``text``/``textbutton`` and so on. The engine never looks those up, so a
+    ``strings`` entry is the only way to translate them without touching the
+    game; turning it off shrinks the skeleton and loses them.
+
+    *sections* / *index* (default off) add the ``# --- <label> ---`` markers and
+    the ``# === Event Index ===`` block. Both are derived from the label each
+    block was compiled from -- a reading aid, not a reconstruction of the
+    script -- so the files carry a note saying the source is the authority.
+    They are off by default and applied after the skeleton is written.
 
     *dev_tool_dirs* replaces the default set of developer-tooling folder names.
     A game whose tooling lives under its own folder name passes it here rather
@@ -1820,6 +1855,16 @@ def generate_tl(
         rows = load_strings(raw)
         game_rows = filter_strings(
             rows, identifiers=identifiers, dev_tool_dirs=dev_tool_dirs)
+        # A hardcoded literal is one the engine will never look up on its own;
+        # a ``strings`` entry is the only way to reach it.  Counted so the run
+        # report can say whether any were produced, and droppable for callers
+        # that want a minimal skeleton.
+        hardcoded_rows = [row for row in game_rows if not row.get("wrapped")]
+        result.hardcoded_strings = len(hardcoded_rows)
+        if not hardcoded:
+            result.hardcoded_skipped = len(hardcoded_rows)
+            result.hardcoded_strings = 0
+            game_rows = [row for row in game_rows if row.get("wrapped")]
         # The engine owns one global string table, so a literal must appear in
         # exactly one file: the game half wins, and the engine half skips it.
         engine_rows = filter_strings(
@@ -1847,6 +1892,22 @@ def generate_tl(
                 continue
             result.files.append(rel)
     result.files.sort()
+
+    if sections or index:
+        # Applied to the generated skeleton, before the caller copies it out.
+        # ``backup=False``: these files were produced by this run a moment ago.
+        from .sorttl import sort_tl_path
+
+        for rel in result.files:
+            if not rel.endswith(".rpy"):
+                continue
+            sort_tl_path(
+                os.path.join(out, rel.replace("/", os.sep)),
+                write_index=index,
+                sections=sections,
+                dry_run=False,
+                backup=False,
+            )
     phases["total"] = time.monotonic() - clock
     result.phases = phases
 

@@ -84,6 +84,9 @@ python <skill>/scripts/rptk.py --version     # 期望 renpy-toolkit 1.0.0
 
 ```bash
 python <skill>/scripts/rptk.py tl gen <game-dir> chinese --outdir <tl-out> --write
+# 可选：--sections --index 额外写分块注释与 Event Index（默认关，标签由源码推断，
+#       可能与实际剧情块有偏差，以源码为准）
+# 可选：--no-hardcoded 不把未包 _() 的界面/按钮/物品名收进 strings（默认收，推荐）
 ```
 
 要点：

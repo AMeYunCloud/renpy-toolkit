@@ -42,6 +42,7 @@ __all__ = [
     "render_index",
     "strip_index",
     "INDEX_BEGIN",
+    "INDEX_NOTE",
     "INDEX_END",
 ]
 
@@ -51,6 +52,14 @@ __all__ = [
 # layout the real project already uses, so re-generating an index on an
 # existing file rewrites it in place instead of nesting a second one.
 INDEX_BEGIN = "# === Event Index ==="
+
+#: Written next to a generated index / section marker.  Labels come from the
+#: translation identifiers, which carry the label the block was compiled from;
+#: they are a reading aid, not a reconstruction of the script, so the source
+#: file stays the authority.  The reminder travels with the file so whoever
+#: reads it later does not treat the index as ground truth.
+INDEX_NOTE = "# 说明：分块注释与索引由脚本按源码标签推断，可能与实际剧情块有偏差，以源码为准。"
+
 INDEX_END = "# === End Index ==="
 
 #: A section marker written by ``sort_tl_file(sections=True)``.  It is derived
@@ -287,7 +296,8 @@ def sort_tl_file(
     # they are regenerated from the block order, so keeping them would double
     # every marker on the second run.
     for line in tl.preamble[: tl.preamble_cap()]:
-        if _SECTION_RE.match(line):
+        # Both are regenerated below, so a stale copy must not come back.
+        if _SECTION_RE.match(line) or INDEX_NOTE in line:
             continue
         body.append(line)
 
@@ -297,6 +307,14 @@ def sort_tl_file(
     # blank line per run and never reaches a fixed point.
     while body and not body[-1].strip():
         body.pop()
+
+    # One reminder per file, above the first section marker.  With an index the
+    # same sentence lives inside the index block instead (written below), so it
+    # is not repeated here.  It is appended unconditionally after the stale ones
+    # were stripped above, which is what keeps a second run byte-identical.
+    if sections and not write_index:
+        body.append(INDEX_NOTE)
+        body.append("")
 
     current_section: str | None = None
 
@@ -322,7 +340,9 @@ def sort_tl_file(
         # previous ``--sections`` run are dropped instead: they are regenerated
         # from the block order, and re-emitting one would double it.
         for comment in getattr(block, "leading_comments", []):
-            if _SECTION_RE.match(comment):
+            # Generated markers and the reminder are rebuilt from the block
+            # order; re-emitting one would double it on the second pass.
+            if _SECTION_RE.match(comment) or INDEX_NOTE in comment:
                 continue
             body.append(comment)
         if block.source_comment:
@@ -361,7 +381,7 @@ def sort_tl_file(
             if label not in seen_labels:
                 seen_labels.add(label)
                 label_order.append(label)
-        reserved = 1 + len(label_order) + 1 + 1
+        reserved = 1 + 1 + len(label_order) + 1 + 1
         entries = _locate_headers(
             eol.join([*([""] * reserved), *body]).split(eol),
             ordered,
@@ -369,6 +389,7 @@ def sort_tl_file(
         result.index_entries = entries
         index_lines = [
             INDEX_BEGIN,
+            INDEX_NOTE,
             *(f"# {entry.label or entry.identifier}: L{entry.lineno}" for entry in entries),
             INDEX_END,
         ]

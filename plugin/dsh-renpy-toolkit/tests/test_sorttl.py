@@ -286,6 +286,70 @@ class TestFiles(unittest.TestCase):
             self.assertLess(body.index("start_aaa"), body.index("start_bbb"))
 
 
+import io  # noqa: E402  (used by TestGeneratedReminder below)
+
+
+class TestGeneratedReminder(unittest.TestCase):
+    """The index / section output says it is a reading aid, not the script."""
+
+    SAMPLE = (
+        "# game/script.rpy:10\n"
+        "translate chinese start_aaa:\n"
+        "\n"
+        "    # e \"first\"\n"
+        "    e \"\u7b2c\u4e00\u4e2a\"\n"
+        "\n"
+        "# game/script.rpy:30\n"
+        "translate chinese start_bbb:\n"
+        "\n"
+        "    # e \"second\"\n"
+        "    e \"\u7b2c\u4e8c\u4e2a\"\n"
+    )
+
+    def _write(self):
+        import os, tempfile
+        fd, path = tempfile.mkstemp(suffix=".rpy")
+        os.close(fd)
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(self.SAMPLE)
+        self.addCleanup(os.unlink, path)
+        return path
+
+    def test_index_block_carries_the_reminder(self):
+        from renpy_toolkit import sorttl
+
+        path = self._write()
+        sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
+        text = io.open(path, encoding="utf-8").read()
+        self.assertIn(sorttl.INDEX_NOTE, text)
+        # inside the index block, not floating in the body
+        lines = text.split("\n")
+        begin = lines.index(sorttl.INDEX_BEGIN)
+        self.assertEqual(lines[begin + 1], sorttl.INDEX_NOTE)
+
+    def test_index_run_is_a_fixed_point(self):
+        from renpy_toolkit import sorttl
+
+        path = self._write()
+        sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
+        first = io.open(path, encoding="utf-8", newline="").read()
+        again = sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
+        second = io.open(path, encoding="utf-8", newline="").read()
+        self.assertEqual(first, second)
+        self.assertFalse(again.changed)
+        self.assertEqual(first.count(sorttl.INDEX_NOTE), 1)
+
+    def test_sections_only_writes_the_reminder_once(self):
+        from renpy_toolkit import sorttl
+
+        path = self._write()
+        sorttl.sort_tl_path(path, sections=True, dry_run=False, backup=False)
+        sorttl.sort_tl_path(path, sections=True, dry_run=False, backup=False)
+        text = io.open(path, encoding="utf-8").read()
+        self.assertEqual(text.count(sorttl.INDEX_NOTE), 1)
+        self.assertIn("# --- start_aaa ---", text)
+
+
 class TestSections(unittest.TestCase):
     """``--sections`` writes ``# --- <label> ---`` markers and stays idempotent.
 

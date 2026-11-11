@@ -23,7 +23,7 @@ renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
 │       ├── renpy_toolkit/  28 个模块（纯命令行，无界面代码）
-│       ├── tests/          531 个 unittest 用例
+│       ├── tests/          537 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
@@ -219,10 +219,15 @@ cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write
 ```
 
+默认会把**硬编码文本**（未包 `_()` 的界面标签、按钮、物品名）也收进 `strings` 块
+——引擎不会自己查这些串，`strings` 条目是唯一不改源码就能翻的途径；不要它们用
+`--no-hardcoded`。分块注释（`# --- 标签 ---`）与 Event Index 是**可选、默认关**的
+`--sections` / `--index`，标签由源码推断，可能与实际剧情块有偏差，以源码为准。
+
 实测（58,249 句、`game/` 下只有 50 个 `.rpyc` 的发行版）：
 
 ```text
-chinese: 58249 translate block(s), 2687 string(s) in 50 file(s)
+chinese: 58249 translate block(s), 2687 string(s) in 50 file(s); 硬编码文本块 11 条（已收入 strings）
 wrote 53 file(s)            耗时 19.6s
 ```
 
@@ -291,7 +296,7 @@ wrote 53 file(s)            耗时 19.6s
 
 ```bash
 cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 531 passed
+python -m unittest discover -s tests -t tests -q     # 537 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -319,7 +324,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 531 tests
+python -m unittest discover -s tests -t tests -q     # 537 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

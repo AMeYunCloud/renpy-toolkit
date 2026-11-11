@@ -56,6 +56,21 @@ after a Ren'Py upgrade.
 
 ### Added
 
+**Generation options (`tl gen`)**
+
+- Hardcoded text — literals the engine never looks up because nothing wraps them
+  in `_()` (UI labels, button captions, tooltips, item names written straight into
+  a `text`/`textbutton`) — is collected into `strings` by default, since a
+  `strings` entry is the only way to translate it without editing the game.
+  `--no-hardcoded` turns that off. The run report always states the outcome:
+  `... ; 硬编码文本块 11 条（已收入 strings）`, or `0 条（按 --no-hardcoded 跳过 N 条）`.
+- `--sections` and `--index` add the `# --- <label> ---` markers and the
+  `# === Event Index ===` block while generating the skeleton. Both are **off by
+  default**: the labels are derived from the label each block was compiled from,
+  so they are a reading aid and can drift from the actual script. Every file that
+  gets them carries a reminder line saying the source is the authority, and a
+  second run is a fixed point.
+
 **Ren'Py-only target validation**
 
 - Every entry point now refuses a directory that is not a Ren'Py game

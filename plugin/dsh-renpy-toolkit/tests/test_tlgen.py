@@ -105,6 +105,25 @@ class TestFstringDetection(unittest.TestCase):
         self.assertIn("n", text)
 
 
+class TestRunReport(unittest.TestCase):
+    """The run report has to say whether hardcoded text produced entries."""
+
+    def _result(self, **kw):
+        return tlgen.GenerateResult(language="chinese", outdir="x", **kw)
+
+    def test_summary_reports_hardcoded_entries(self):
+        text = self._result(blocks=10, strings=40, hardcoded_strings=7).summary()
+        self.assertIn("\u786c\u7f16\u7801\u6587\u672c\u5757 7 \u6761", text)
+
+    def test_summary_reports_zero_when_skipped(self):
+        text = self._result(blocks=10, strings=33, hardcoded_skipped=7).summary()
+        self.assertIn("--no-hardcoded \u8df3\u8fc7 7 \u6761", text)
+
+    def test_summary_reports_zero_when_there_are_none(self):
+        text = self._result(blocks=10, strings=33).summary()
+        self.assertIn("\u786c\u7f16\u7801\u6587\u672c\u5757 0 \u6761", text)
+
+
 class TestFilterStrings(unittest.TestCase):
     """Which rows reach ``translate <lang> strings:``."""
 

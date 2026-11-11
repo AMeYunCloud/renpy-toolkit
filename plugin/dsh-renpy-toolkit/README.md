@@ -7,7 +7,7 @@
 ```bash
 cd plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 531 个用例
+python -m unittest discover -s tests -t tests -q     # 537 个用例
 ```
 
 ## 目录
@@ -145,6 +145,12 @@ python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write
 
 # 直接写进游戏
 python -m renpy_toolkit tl gen <game> chinese --write
+
+# 额外要分块注释与 Event Index（默认关）
+python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write --sections --index
+
+# 只要对白与 _() 包住的串，不要硬编码文本（默认是收的）
+python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write --no-hardcoded
 ```
 
 实测（58,249 句的发行版，`game/` 下只有 50 个 `.rpyc`，无 `.rpy`）：
@@ -169,6 +175,32 @@ translate chinese start_a55bd194:
 > **`--write` 只补缺失文件**：对已存在的输出目录再跑一次，会打印
 > `53 file(s) already present, left untouched` 并**跳过全部内容**。想看到新策略的
 > 产物必须换一个 `--outdir`，否则会误判覆盖率。
+
+### 硬编码文本与分块注释
+
+| 选项 | 默认 | 作用 |
+|---|---|---|
+| 硬编码文本 | **开**（推荐） | 未包 `_()` 的界面标签、按钮、物品名等也收进 `strings` 块。引擎不会自己去查这些串，`strings` 条目是唯一不改源码就能翻的途径；关掉用 `--no-hardcoded` |
+| `--sections` | **关** | 写 `# --- <剧情标签> ---` 分块注释 |
+| `--index` | **关** | 在文件顶部写 `# === Event Index ===`（每个 label 一行，指向首块行号） |
+
+`sections` / `index` 用的标签是从每个块编译时的 label 推出来的，只是阅读辅助，
+**可能与实际剧情块有偏差，以源码为准** —— 生成的文件里会带一句这样的说明：
+
+```
+# === Event Index ===
+# 说明：分块注释与索引由脚本按源码标签推断，可能与实际剧情块有偏差，以源码为准。
+# start: L9
+# === End Index ===
+```
+
+运行报告会明确给出这次是否产出了硬编码条目：
+
+```
+chinese: 58249 translate block(s), 2687 string(s) in 50 file(s); 硬编码文本块 11 条（已收入 strings）
+```
+
+（分块注释与索引在骨架写完之后再插入，重复运行是幂等的。）
 
 ### 为什么需要跑游戏
 
@@ -701,7 +733,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **531 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **537 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -781,7 +813,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 531 tests
+python -m unittest discover -s tests -t tests -q     # 537 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

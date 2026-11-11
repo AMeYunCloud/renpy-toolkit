@@ -205,6 +205,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="游戏自带的 lib/py3-*/python.exe 或 <name>.py")
     p.add_argument("--no-strings", action="store_true",
                    help="只生成对白块，不扫描界面字符串")
+    p.add_argument("--no-hardcoded", dest="hardcoded", action="store_false",
+                   help="不把未包 _() 的硬编码文本（界面标签、按钮、物品名等）"
+                        "收进 strings 块。默认收，推荐开启")
+    p.add_argument("--sections", action="store_true",
+                   help="在 TL 里写「# --- 剧情标签 ---」分块注释（默认关；"
+                        "标签由源码推断，可能与实际剧情块有偏差，以源码为准）")
+    p.add_argument("--index", action="store_true",
+                   help="在 TL 顶部写 Event Index（默认关；同上，与源码为准）")
     p.add_argument("--include-identifiers", action="store_true",
                    help="保留形如 scene_editor 的下划线标识符（可能是界面 key，"
                         "但绝大多数是跳转标签，会显著增加噪声）")
@@ -767,11 +775,27 @@ def cmd_tl_gen(args: argparse.Namespace, out: _Out) -> int:
         runtime=args.runtime,
         with_strings=not args.no_strings,
         identifiers=args.include_identifiers,
+        hardcoded=args.hardcoded,
+        sections=args.sections,
+        index=args.index,
         dev_tool_dirs=_split_dirs(args.dev_tool_dirs),
         clean_scratch=args.clean_scratch,
         timeout=args.timeout,
     )
     out.say(result.summary())
+    if result.hardcoded_strings or result.hardcoded_skipped:
+        out.say(
+            "  硬编码文本：%d 条已收入 strings 块%s"
+            % (
+                result.hardcoded_strings,
+                "（%d 条按 --no-hardcoded 跳过）" % result.hardcoded_skipped
+                if result.hardcoded_skipped else "",
+            )
+        )
+    if args.sections or args.index:
+        out.say(
+            "  提示：分块注释与索引由脚本按源码标签推断，可能与实际剧情块有偏差，以源码为准。"
+        )
     if result.decompiled:
         out.say(f"  {result.decompiled} .rpyc had to be decompiled to read strings")
     if result.strings_json:
