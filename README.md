@@ -93,6 +93,11 @@ pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl�
 `DependencyError` 而不是 import 失败。**exe 是另一条线（已停止维护）**：源码在 `exe/`，由 `tools/build_exe.py`
 把这两个可选依赖一起打包，所以那两个功能在 exe 里开箱可用；反过来，插件与 skill 不含也不调用界面代码。
 
+**给 DSH 插件市场用的 npm 包**：`npm pack` 产出的 `dsh-renpy-toolkit-<version>.tgz` 挂在 `v1.0.0`
+的 Release 上（`releases/download/v1.0.0/dsh-renpy-toolkit-1.0.0.tgz`，946 KB / 102 个文件），
+市场条目用它的 `tarball:` 字段安装。本包没有构建脚本（纯 ESM + Python 源码），`npm install <tgz>`
+与从源码安装等价，装的时候不需要 `allowBuilds` 授权。
+
 ### Windows exe（图形界面）—（已停止维护）
 
 > **（已停止维护）** 这条线已停止维护：不再随新版本发布、不再修复。下面保留的是它当初的

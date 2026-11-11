@@ -81,6 +81,13 @@ default; `fontTools` and `openpyxl` are optional and report a readable
 bundles both, so those two features work out of the box there — and conversely the
 packages never contain or call the UI code.
 
+**npm package for the DSH plugin market**: `npm pack` produces
+`dsh-renpy-toolkit-<version>.tgz`, published as an asset on the `v1.0.0` release
+(`releases/download/v1.0.0/dsh-renpy-toolkit-1.0.0.tgz`, 946 KB / 102 files). The
+market entry installs from that `tarball:`. The package has no build step
+(plain ESM plus Python sources), so `npm install <tgz>` is equivalent to
+installing from source and needs no `allowBuilds` approval.
+
 ### Windows exe (DEPRECATED)
 
 > **DEPRECATED.** This line is no longer maintained: it is not released with new
