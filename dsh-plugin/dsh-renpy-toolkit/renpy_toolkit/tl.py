@@ -104,15 +104,23 @@ __all__ = [
     "dump_tl_file",
     "find_missing",
     "format_value",
+    "case_conflicts",
     "iter_tl_files",
+    "language_dirs",
     "make_translate_block",
     "parse_tl_file",
     "parse_tl_text",
     "replace_new",
     "replace_string",
+    "resolve_language",
     "set_string_new",
     "unescape_value",
 ]
+
+#: A language folder name. Ren'Py uses the name verbatim as the language identifier,
+#: so anything outside this set would produce a ``translate <lang>`` header the engine
+#: cannot match against a directory.
+LANGUAGE_NAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
 
 BlockKind = Literal["translate", "strings", "python", "style", "early", "unknown"]
 
@@ -1233,6 +1241,60 @@ def iter_tl_languages(tl_root: str) -> list[str]:
         for name in os.listdir(tl_root)
         if os.path.isdir(os.path.join(tl_root, name)) and not name.startswith(".")
     )
+
+
+def language_dirs(tl_root: str) -> list[str]:
+    """Language folder names under *tl_root*, spelled exactly as they are on disk."""
+    return iter_tl_languages(tl_root)
+
+
+def case_conflicts(tl_root: str) -> list[tuple[str, ...]]:
+    """Groups of language folders that differ only in letter case.
+
+    Ren'Py compares language names as strings, so ``Chinese`` and ``chinese`` are two
+    different languages. Two such folders can coexist on a case-sensitive filesystem
+    but collide on Windows, which makes the target ambiguous rather than merely odd.
+    """
+    groups: dict[str, list[str]] = {}
+    for name in language_dirs(tl_root):
+        groups.setdefault(name.lower(), []).append(name)
+    return [tuple(sorted(v)) for v in groups.values() if len(v) > 1]
+
+
+def resolve_language(tl_root: str, language: str) -> str:
+    """Return the spelling this tool must use for *language* under *tl_root*.
+
+    Why this exists
+    ---------------
+    Ren'Py treats a language name as a **case-sensitive identifier**: the folder name
+    names the language, and ``translate Chinese ...`` blocks only apply when the active
+    language is spelled ``Chinese``. Windows filesystems are not case-sensitive, so
+    asking for ``chinese`` while ``game/tl/Chinese`` exists writes the files into that
+    folder but stamps every block header ``translate chinese ...`` — the game then shows
+    the original text with no error to point at.
+
+    So: whenever exactly one existing folder matches *language* ignoring case, return
+    that folder's exact spelling. Otherwise return *language* unchanged (validated).
+    """
+    language = (language or "").strip()
+    if not language:
+        raise TLError("language name is empty")
+    dirs = language_dirs(tl_root)
+    if language in dirs:
+        return language
+    close = [d for d in dirs if d.lower() == language.lower()]
+    if len(close) == 1:
+        return close[0]
+    if len(close) > 1:
+        raise TLError(
+            "tl/ has folders that differ only in case (%s); language names are "
+            "case-sensitive, so pass the exact one" % ", ".join(sorted(close))
+        )
+    if not LANGUAGE_NAME_RE.match(language):
+        raise TLError(
+            "invalid language name %r: expected [A-Za-z][A-Za-z0-9_.-]*" % language
+        )
+    return language
 
 
 def parse_tl_dir(tl_dir: str) -> list[TlFile]:

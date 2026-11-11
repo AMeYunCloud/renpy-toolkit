@@ -11,7 +11,7 @@ first", this launcher finds the release tree and runs it in-process.
 Resolution order for the release tree (first match wins):
 
 1. ``$RPTK_HOME``  -- point at any directory that contains ``renpy_toolkit/``.
-2. ``<skill>/../../plugin/dsh-renpy-toolkit``  -- the layout of a checkout.
+2. ``<skill>/../../dsh-plugin/dsh-renpy-toolkit``  -- the layout of a checkout.
 3. ``<skill>/../../plugin``                    -- the pre-1.0.1 layout.
 4. ``<skill>/plugin``                          -- a release copied next to the skill.
 
@@ -37,7 +37,7 @@ def candidates() -> list[str]:
     # still resolves instead of failing with a bare ModuleNotFoundError.
     out.append(
         os.path.abspath(
-            os.path.join(SKILL_DIR, "..", "..", "plugin", "dsh-renpy-toolkit")
+            os.path.join(SKILL_DIR, "..", "..", "dsh-plugin", "dsh-renpy-toolkit")
         )
     )
     out.append(os.path.abspath(os.path.join(SKILL_DIR, "..", "..", "plugin")))

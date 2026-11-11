@@ -222,7 +222,7 @@
 #   ]
 # }
 #
-# 命令（都在 `python -m renpy_toolkit` 下，先 `cd plugin/dsh-renpy-toolkit`）：
+# 命令（都在 `python -m renpy_toolkit` 下，先 `cd dsh-plugin/dsh-renpy-toolkit`）：
 #   tl hardcoded scan  <语言目录> --language <语言>    扫描 TL，刷新硬编码清单
 #   tl hardcoded show  <语言目录> --language <语言>    打印清单内容
 #   tl hardcoded apply <语言目录> --language <语言> [--write]

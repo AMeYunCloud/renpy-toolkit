@@ -29,7 +29,7 @@ metadata:
 # Ren'Py 汉化与制作
 
 工具本体是一个独立的 Python 包 `renpy_toolkit`（27 个模块，零第三方依赖），
-在仓库的 `plugin/dsh-renpy-toolkit/` 下（构建产物在 `dist/plugin/`）。**不要 `cd` 进去再跑** ——
+在仓库的 `dsh-plugin/dsh-renpy-toolkit/` 下（构建产物在 `dist/plugin/`）。**不要 `cd` 进去再跑** ——
 用随附启动器，它在任何工作目录下都能用：
 
 ```bash
@@ -584,7 +584,7 @@ python $S tl glossary check /tmp/tl-new --ui-terms --terms <dict.tsv> --missing 
 
 ## 需要更多细节时
 
-`plugin/dsh-renpy-toolkit/README.md` 有逐模块说明与设计依据；`docs/` 下有引擎事实的实证笔记
+`dsh-plugin/dsh-renpy-toolkit/README.md` 有逐模块说明与设计依据；`docs/` 下有引擎事实的实证笔记
 （文本标签、插值语法、`.rpyc` 格式、`.rpa` 格式、安全审查）。
 判断规则有疑问时**优先看引擎源码**：`renpy/translation/`、`renpy/text/extras.py`、
 `renpy/substitutions.py` 是全部规则的权威依据。

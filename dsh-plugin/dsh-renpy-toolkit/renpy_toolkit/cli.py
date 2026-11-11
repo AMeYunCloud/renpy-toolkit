@@ -755,6 +755,7 @@ def cmd_tl_gen(args: argparse.Namespace, out: _Out) -> int:
     import shutil
 
     from .tlgen import clean_scratch_tree, generate_tl
+    from . import tl as tlmod
 
     root = os.path.abspath(args.basedir)
     if os.path.basename(root).lower() == "game":
@@ -763,7 +764,15 @@ def cmd_tl_gen(args: argparse.Namespace, out: _Out) -> int:
         from .engine import require as _require_renpy
 
         _require_renpy(root, what=args.basedir)
-    target = args.outdir or os.path.join(root, "game", "tl", args.language)
+    language = tlmod.resolve_language(
+        os.path.join(root, "game", "tl"), args.language
+    )
+    if language != args.language:
+        out.say(
+            "  语言名 %r 已按现有目录改为 %r：tl/ 目录名区分大小写。"
+            % (args.language, language)
+        )
+    target = args.outdir or os.path.join(root, "game", "tl", language)
 
     # No outdir on purpose: the generator picks a scratch base that the *game's*
     # interpreter can write to, which is not necessarily where we can write.
@@ -771,7 +780,7 @@ def cmd_tl_gen(args: argparse.Namespace, out: _Out) -> int:
     # wipe existing translations.
     result = generate_tl(
         args.basedir,
-        args.language,
+        language,
         runtime=args.runtime,
         with_strings=not args.no_strings,
         identifiers=args.include_identifiers,

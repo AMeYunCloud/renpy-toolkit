@@ -117,7 +117,7 @@ screen main_menu():
 
 ---
 
-## 6. 汉化视角的注意点（与 `plugin/dsh-renpy-toolkit/` 直接相关）
+## 6. 汉化视角的注意点（与 `dsh-plugin/dsh-renpy-toolkit/` 直接相关）
 
 学完脚本层再回头看翻译机制，会清楚很多：
 
@@ -156,4 +156,4 @@ screen main_menu():
 - 想做汉化 → [`official-cli-and-translation.md`](official-cli-and-translation.md)
   + [`renpy-translation-ecosystem.md`](renpy-translation-ecosystem.md)
 - 想拆 `.rpa` → [`rpa-format-spec.md`](rpa-format-spec.md)
-- 想用工具 → [`../plugin/dsh-renpy-toolkit/README.md`](../plugin/dsh-renpy-toolkit/README.md)
+- 想用工具 → [`../dsh-plugin/dsh-renpy-toolkit/README.md`](../dsh-plugin/dsh-renpy-toolkit/README.md)

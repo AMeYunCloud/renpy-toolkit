@@ -36,6 +36,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
 from .errors import ToolkitError
+from . import tl as tlmod
 from .tl import TlBlock, TlFile, dump_tl_file, parse_tl_file, parse_tl_text
 
 
@@ -96,6 +97,11 @@ def identifier_for(label: str, who: str | None, what: str, *, arguments: str = "
 # 目录约定
 # ---------------------------------------------------------------------------
 def translate_dir_for(basedir: str, language: str) -> str:
+    """Target ``game/tl/<language>``, spelled the way an existing folder is.
+
+    Language names are case-sensitive: ``tl/Chinese`` and ``tl/chinese`` are two
+    different languages to Ren'Py, while Windows treats them as one directory.
+    """
     """``<basedir>/game/tl/<language>``, accepting either the root or ``game``.
 
     *basedir* is the directory a player would launch the game from -- the one
@@ -109,7 +115,8 @@ def translate_dir_for(basedir: str, language: str) -> str:
             f"{basedir}: no game/ directory (pass the folder containing game/, "
             "or game/ itself)"
         )
-    return os.path.join(game, "tl", language)
+    tls = os.path.join(game, "tl")
+    return os.path.join(tls, tlmod.resolve_language(tls, language))
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +287,7 @@ def plan_fresh_tl(
         candidates = [
             d
             for d in _existing_languages(tl_root)
-            if d != language and os.path.isdir(os.path.join(tl_root, d))
+            if d.lower() != language.lower() and os.path.isdir(os.path.join(tl_root, d))
         ]
         # Prefer a real translation over the None pseudo-language, and prefer
         # one with the most files: that is the one most likely to be complete.

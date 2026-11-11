@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DEFAULT = [
     os.path.join(ROOT, "README.md"),
-    os.path.join(ROOT, "plugin", "dsh-renpy-toolkit", "README.md"),
+    os.path.join(ROOT, "dsh-plugin", "dsh-renpy-toolkit", "README.md"),
 ]
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(?P<title>.+?)\s*$")

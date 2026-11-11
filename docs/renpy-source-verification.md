@@ -108,7 +108,7 @@ RPA-3.0 %016x %08x\n                             # 34 字节
 
 注意默认 key 是 `0xDEADBEEF`，但**必须从头部读**，不能假设。
 
-工具包实现见 [`../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py)，
+工具包实现见 [`../dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py)，
 格式细节见 [`rpa-format-spec.md`](rpa-format-spec.md)。
 
 ---

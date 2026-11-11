@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "renpy-toolkit"
 version = "1.0.0"
 description = "Inspect, translate and verify Ren'Py games — including releases that ship only compiled .rpyc scripts."
-readme = "plugin/dsh-renpy-toolkit/README.md"
+readme = "dsh-plugin/dsh-renpy-toolkit/README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "the renpy-toolkit authors" }]
@@ -40,12 +40,12 @@ Upstream = "https://github.com/renpy/renpy"
 Documentation = "https://www.renpy.org/doc/html/"
 
 [tool.setuptools]
-# The package lives under plugin/dsh-renpy-toolkit/, so both the package root
+# The package lives under dsh-plugin/dsh-renpy-toolkit/, so both the package root
 # and its data files need explicit routing.
-package-dir = { "" = "plugin/dsh-renpy-toolkit" }
+package-dir = { "" = "dsh-plugin/dsh-renpy-toolkit" }
 
 [tool.setuptools.packages.find]
-where = ["plugin/dsh-renpy-toolkit"]
+where = ["dsh-plugin/dsh-renpy-toolkit"]
 include = ["renpy_toolkit*"]
 
 [tool.setuptools.package-data]

@@ -5,9 +5,9 @@
 或没有 SDK 的机器上。
 
 ```bash
-cd plugin/dsh-renpy-toolkit
+cd dsh-plugin/dsh-renpy-toolkit
 python -m renpy_toolkit --help
-python -m unittest discover -s tests -t tests -q     # 537 个用例
+python -m unittest discover -s tests -t tests -q     # 548 个用例
 ```
 
 ## 目录
@@ -691,6 +691,25 @@ python tools/build_exe.py --clean      # 打单文件 exe，并跑 --selftest �
 python tools/build_exe.py --verify     # 只自检已有产物
 ```
 
+## 语言目录名区分大小写
+
+`game/tl/Chinese` 与 `game/tl/chinese` 在 Ren'Py 眼里是**两个语言**（语言名就是目录
+名，块头 `translate <语言>` 必须逐字符相符），而 Windows 把它们当同一个文件夹。所以
+把 `chinese` 的译文写进 `tl/Chinese` 会得到一堆 `translate chinese ...` 的块，引擎
+一条都不读，游戏静默回到原文、任何日志都没有提示。
+
+所有入口（`tl gen`、`tl init`、`tl hardcoded`、HTTP 界面、DSH 插件）都先用
+`tl.resolve_language()` 拿磁盘上真实的拼写再动手，并在改名时明说：
+
+```
+语言名 'chinese' 已按现有目录改为 'Chinese'：tl/ 目录名区分大小写。
+```
+
+- 只有一个目录与之忽略大小写相等 → 用那个目录的拼写。
+- 两个目录只差大小写 → 报错让你指定，不替你猜（`tl.case_conflicts()` 可先查）。
+- 目录不存在 → 用你给的名字（生成新语言时这是正常情况）。
+- 名字不是普通标识符（含空格、`..`、中文）→ 直接拒绝。
+
 ## 与其他工具共存
 
 一套汉化流程里往往同时跑着别的工具：Ren'Py 官方 `translate` 命令、`unrpyc`/`rpatool`
@@ -727,13 +746,13 @@ python tools/build_exe.py --verify     # 只自检已有产物
 ### 测试
 
 ```bash
-cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
+cd dsh-plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 ```
 
 （必须用 `discover -s tests -t tests`；`python -m unittest tests.test_x` 会因为解析不到
 `_util` 而报 `ModuleNotFoundError`。测试是纯 unittest，不需要 pytest。）
 
-当前 **537 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
+当前 **548 个用例全绿**，约 62 秒。测试把「踩过的坑」直接写成断言：BOM/行尾保真、
 重复标识符消歧、单行块与多 say 块拒写、字面 `\n`、raw string、标签/占位符一个
 不能多也一个不能少、三引号多行值往返字节一致、自闭合标签不算未闭合、
 嵌套下标插值算一个原子、`[[` 不当插值；`test_decompile.py` 另加反编译器的
@@ -757,7 +776,7 @@ cd plugin/dsh-renpy-toolkit && python -m unittest discover -s tests -t tests -q
 ```bash
 python tools/build_release.py            # 生成 dist/plugin（VERSION + MANIFEST.sha256）
 python tools/build_release.py --verify   # 重新哈希，逐文件比对
-python tools/build_release.py --sync     # 用发布版覆盖 plugin/dsh-renpy-toolkit/
+python tools/build_release.py --sync     # 用发布版覆盖 dsh-plugin/dsh-renpy-toolkit/
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
 python tools/build_exe.py --clean        # 打单文件 exe（dist/exe/onefile）并自检
 python tools/check_portable.py           # 在干净解压副本上验收一键包
@@ -767,11 +786,11 @@ python tools/check_skill.py              # SKILL.md 里的 flag/子命令必须�
 python tools/check_readme.py             # README 的目录锚点与相对链接必须能解析
 ```
 
-`plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 是构建产物（`.gitignore` 排除）。
+`dsh-plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 是构建产物（`.gitignore` 排除）。
 保留这份副本只为能逐字节比对，不是第二份需要手工维护的代码。
 
 这一层目录以发行名命名，是因为工具包要能整目录拷走单独验证：把
-`plugin/dsh-renpy-toolkit/` 复制到任意位置，`cd` 进去跑
+`dsh-plugin/dsh-renpy-toolkit/` 复制到任意位置，`cd` 进去跑
 `python -m unittest discover -s tests -t tests -q` 与 `python -m renpy_toolkit --version`
 就能确认它在脱离仓库其它部分时仍然可用。
 
@@ -813,7 +832,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 537 tests
+python -m unittest discover -s tests -t tests -q     # 548 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

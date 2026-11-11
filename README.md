@@ -14,7 +14,7 @@ English: [`README.en.md`](README.en.md)
 | [CensoredUsername/unrpyc](https://github.com/CensoredUsername/unrpyc) | `.rpyc` 反编译的参考实现（本工具改为白名单 pickle 虚拟机） |
 | [Ren'Py 官方文档](https://www.renpy.org/doc/html/) | 翻译机制、CLI、自定义文本标签的语义 |
 
-完整的上游清单与出处对照见 [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md#相关项目与参考)。
+完整的上游清单与出处对照见 [`dsh-plugin/dsh-renpy-toolkit/README.md`](dsh-plugin/dsh-renpy-toolkit/README.md#相关项目与参考)。
 
 ## 目录结构
 
@@ -23,7 +23,7 @@ renpy-toolkit/
 ├── plugin/
 │   └── dsh-renpy-toolkit/  renpy_toolkit —— 工具包真源（自包含，可整目录拷走）
 │       ├── renpy_toolkit/  28 个模块（纯命令行，无界面代码）
-│       ├── tests/          537 个 unittest 用例
+│       ├── tests/          548 个 unittest 用例
 │       ├── data/ui-terms.tsv   内置通用 UI 术语表（167 条）
 │       ├── VERSION         版本号
 │       └── README.md       完整的模块说明、用法与设计约束
@@ -51,13 +51,13 @@ renpy-toolkit/
     └── exe/                Windows exe（onefile/renpy-toolkit.exe，已停止维护）
 ```
 
-`plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 由 `tools/build_*.py` 生成、被 `.gitignore`
+`dsh-plugin/dsh-renpy-toolkit/` 是唯一真源，`dist/` 由 `tools/build_*.py` 生成、被 `.gitignore`
 排除——发布版存在的意义只是让「在用的」与「发出去的」能逐字节比对。
 
-工具包单独装在一个以发行名命名的目录里（`plugin/dsh-renpy-toolkit/`），是为了能整目录
+工具包单独装在一个以发行名命名的目录里（`dsh-plugin/dsh-renpy-toolkit/`），是为了能整目录
 拷到别处单独验证，而不必连带整个仓库。
 
-用法见 [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md)（工具包）与
+用法见 [`dsh-plugin/dsh-renpy-toolkit/README.md`](dsh-plugin/dsh-renpy-toolkit/README.md)（工具包）与
 [`skills/renpy-toolkit/SKILL.md`](skills/renpy-toolkit/SKILL.md)（skill）。
 
 ## 三条独立的发行线
@@ -78,7 +78,7 @@ Windows exe 只是「不想碰命令行」的一次性便利形态，已停止�
 | 线 | 定位 | 局限 |
 | --- | --- | --- |
 | **插件 / pip**（首推） | 全部功能的唯一落点，也是唯一持续更新的线 | 需要 Python 3.8+（或解压便携 zip 里自带的运行时）；`tl gen` 仍必须用目标游戏自带的解释器 `lib/py3-*/python.exe` |
-| **agent skill**（首推·AI 场景） | 不含代码，只把同一套命令与判断教给 AI 助手 | 能力上限等于插件：本机没有工具包时它跑不动；拷走 skill 目录要保证 `scripts/rptk.py` 能找到 `plugin/dsh-renpy-toolkit` 或设 `RPTK_HOME` |
+| **agent skill**（首推·AI 场景） | 不含代码，只把同一套命令与判断教给 AI 助手 | 能力上限等于插件：本机没有工具包时它跑不动；拷走 skill 目录要保证 `scripts/rptk.py` 能找到 `dsh-plugin/dsh-renpy-toolkit` 或设 `RPTK_HOME` |
 | **Windows exe**（已停止维护） | 不碰命令行的图形壳，功能与插件一致但不再新增 | 仅 Windows；界面走系统浏览器，个别机器上 Edge 自己的「无法更新」提示页会挡住界面（改用 `--tab`）；个别受限账户下引导器无法创建解包临时目录，需 `--runtime-tmpdir` 重打包 |
 
 ```bash
@@ -88,7 +88,7 @@ pip install .              # 得到 renpy-toolkit 命令
 pip install '.[all]'       # 附带 fontTools（字体覆盖率）与 openpyxl（XLSX 读写）
 ```
 
-不装也能用：`cd plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。插件与 skill 走的是
+不装也能用：`cd dsh-plugin/dsh-renpy-toolkit && python -m renpy_toolkit --help`。插件与 skill 走的是
 同一份 Python 代码，默认依赖仅标准库；`fontTools` 与 `openpyxl` 是可选能力，缺失时会给出可读的
 `DependencyError` 而不是 import 失败。**exe 是另一条线（已停止维护）**：源码在 `exe/`，由 `tools/build_exe.py`
 把这两个可选依赖一起打包，所以那两个功能在 exe 里开箱可用；反过来，插件与 skill 不含也不调用界面代码。
@@ -225,7 +225,7 @@ python tools/make_release.py             # 真的发布
 （`renpy.game.script.translator.file_translates` 与 SL2 屏幕树）。
 
 ```bash
-cd plugin/dsh-renpy-toolkit
+cd dsh-plugin/dsh-renpy-toolkit
 python -m renpy_toolkit tl gen <game> chinese --outdir work/tl --write
 ```
 
@@ -280,7 +280,7 @@ wrote 53 file(s)            耗时 19.6s
 
 | 文档 | 内容 |
 | --- | --- |
-| [`plugin/dsh-renpy-toolkit/README.md`](plugin/dsh-renpy-toolkit/README.md) | 模块说明、全部子命令、设计约束 |
+| [`dsh-plugin/dsh-renpy-toolkit/README.md`](dsh-plugin/dsh-renpy-toolkit/README.md) | 模块说明、全部子命令、设计约束 |
 | [`docs/README.md`](docs/README.md) | 参考文档索引 |
 | [`docs/renpy-engine-notes.md`](docs/renpy-engine-notes.md) | 引擎架构与核心机制 |
 | [`docs/official-cli-and-translation.md`](docs/official-cli-and-translation.md) | 翻译机制与官方 CLI（文档核实） |
@@ -301,13 +301,13 @@ wrote 53 file(s)            耗时 19.6s
 只补缺失文件、不改已有译文；备份默认只写 `.bak`，用 `--backup-mode git` 时写的是影子仓库
 （`<tl>/.renpy-toolkit.git` 或 `RTK_BACKUP_DIR`），不碰你自己的 git 仓库。所有子命令
 默认 dry-run，且只写 `game/tl/<语言>/`。详见
-[plugin/dsh-renpy-toolkit/README.md](plugin/dsh-renpy-toolkit/README.md#与其他工具共存)。
+[dsh-plugin/dsh-renpy-toolkit/README.md](dsh-plugin/dsh-renpy-toolkit/README.md#与其他工具共存)。
 
 ## 开发
 
 ```bash
-cd plugin/dsh-renpy-toolkit
-python -m unittest discover -s tests -t tests -q     # 537 passed
+cd dsh-plugin/dsh-renpy-toolkit
+python -m unittest discover -s tests -t tests -q     # 548 passed
 ```
 
 必需 Python 3.10+，仅标准库；可选 `fontTools`（字体 cmap）、`openpyxl`（XLSX 读写）。
@@ -319,7 +319,7 @@ python -m unittest discover -s tests -t tests -q     # 537 passed
 ```bash
 python tools/build_release.py            # 生成 dist/plugin（含 VERSION 与 MANIFEST.sha256）
 python tools/build_release.py --verify   # 重新哈希逐个比对
-python tools/build_release.py --sync     # 再用发布版覆盖 plugin/dsh-renpy-toolkit/，两边不许漂移
+python tools/build_release.py --sync     # 再用发布版覆盖 dsh-plugin/dsh-renpy-toolkit/，两边不许漂移
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
 python tools/build_exe.py --clean        # 生成 dist/exe/onefile 单文件 exe，并跑 --selftest 自检（已停止维护）
 python tools/check_portable.py           # 在干净解压副本上验收一键包（自检/子命令/退出码/清单/行尾）
@@ -335,7 +335,7 @@ $tmp = Join-Path $env:TEMP "rptk-check"
 Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item dist\plugin $tmp -Recurse
 Push-Location $tmp
-python -m unittest discover -s tests -t tests -q     # 537 tests
+python -m unittest discover -s tests -t tests -q     # 548 tests
 Pop-Location
 Remove-Item $tmp -Recurse -Force
 ```

@@ -5,11 +5,11 @@ Run from anywhere:
 
     python tools/build_release.py            # build dist/plugin
     python tools/build_release.py --verify   # build, then re-hash and compare
-    python tools/build_release.py --sync     # build, then replace ../plugin/dsh-renpy-toolkit in place
+    python tools/build_release.py --sync     # build, then replace ../dsh-plugin/dsh-renpy-toolkit in place
 
 What it does, in order:
 
-1. Copies ``plugin/dsh-renpy-toolkit/renpy_toolkit`` (the package), its ``tests``
+1. Copies ``dsh-plugin/dsh-renpy-toolkit/renpy_toolkit`` (the package), its ``tests``
    directory and ``README.md`` into ``dist/plugin``, skipping ``__pycache__`` /
    ``*.pyc`` so the release is reproducible across machines.
 2. Sweeps anything the filter rejects out of the *target* tree. This is not
@@ -18,7 +18,7 @@ What it does, in order:
    copy and to ``--verify``. Running a test inside the release tree creates
    exactly that, and only the build itself can notice and remove it.
 3. Writes ``dist/plugin/VERSION`` and ``dist/plugin/MANIFEST.sha256``.
-4. With ``--sync``, replaces the working copy in ``plugin/dsh-renpy-toolkit/``
+4. With ``--sync``, replaces the working copy in ``dsh-plugin/dsh-renpy-toolkit/``
    with the release tree so "what is in use" and "what was released" cannot
    drift apart.
 
@@ -26,7 +26,7 @@ The manifest is what makes the claim checkable: ``--verify`` recomputes every
 digest and fails loudly if a file was edited after the manifest was written.
 
 ``dist/`` is a build artifact and is not tracked by git. The single source of
-truth is ``plugin/dsh-renpy-toolkit/``; ``--sync`` exists so the two can be
+truth is ``dsh-plugin/dsh-renpy-toolkit/``; ``--sync`` exists so the two can be
 compared byte for byte without either one quietly becoming authoritative.
 
 Running the tests without dirtying the tree
@@ -62,7 +62,7 @@ VERSION = "1.0.0"
 HERE = os.path.dirname(os.path.abspath(__file__))          # tools/
 ROOT = os.path.dirname(HERE)                               # repository root
 
-SRC_PLUGIN = os.path.join(ROOT, "plugin", "dsh-renpy-toolkit")
+SRC_PLUGIN = os.path.join(ROOT, "dsh-plugin", "dsh-renpy-toolkit")
 DST_PLUGIN = os.path.join(ROOT, "dist", "plugin")
 
 SKIP_DIRS = {"__pycache__", ".git", ".mypy_cache", ".pytest_cache"}
@@ -223,7 +223,7 @@ def main(argv: list[str]) -> int:
 
     if sync:
         # Replace the working copy with the release, so a later edit to
-        # plugin/dsh-renpy-toolkit/ shows up as a manifest mismatch instead of
+        # dsh-plugin/dsh-renpy-toolkit/ shows up as a manifest mismatch instead of
         # silently diverging.
         synced = copy_tree(DST_PLUGIN, SRC_PLUGIN)
         print("  sync: replaced %s with the release (%d file(s))" % (SRC_PLUGIN, synced))

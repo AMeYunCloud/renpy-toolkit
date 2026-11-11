@@ -37,7 +37,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PLUGIN = os.path.join(ROOT, "plugin", "dsh-renpy-toolkit")
+PLUGIN = os.path.join(ROOT, "dsh-plugin", "dsh-renpy-toolkit")
 EXE_DIR = os.path.join(ROOT, "exe")
 ENTRY = os.path.join(ROOT, "tools", "exe_entry.py")
 WORK = os.path.join(ROOT, "工作区域", "exe-build")

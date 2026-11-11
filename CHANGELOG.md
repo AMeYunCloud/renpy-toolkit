@@ -25,6 +25,23 @@ after a Ren'Py upgrade.
   agent-skill lines are unaffected — neither imports nor invokes the GUI, and
   their published artifacts contain no UI code.
 
+### Fixed
+
+**Language folder names are case-sensitive**
+
+- Ren'Py compares a language name as a string, so `game/tl/Chinese` and
+  `game/tl/chinese` are two different languages while Windows treats them as one
+  folder. Asking for `chinese` when only `Chinese` exists used to write the files
+  into that folder but stamp every block header `translate chinese ...`, which the
+  engine never reads — the game silently showed the original text. Every entry
+  point (`tl gen`, `tl init`, `hardcoded`, the HTTP GUI, the DSH plugin) now
+  resolves the requested name against the folders on disk and uses the spelling
+  that is actually there, saying so when it differs
+  (`语言名 'chinese' 已按现有目录改为 'Chinese'：tl/ 目录名区分大小写。`). Two folders
+  that differ only in case are reported as ambiguous instead of being guessed, and
+  a name that is not a plain identifier is refused (`renpy_toolkit.tl.resolve_language`,
+  `case_conflicts`, `language_dirs`).
+
 ### Changed
 
 **Three independent release lines**
@@ -322,7 +339,7 @@ after a Ren'Py upgrade.
 - `tools/make_release.py` publishes both archives as GitHub release assets.
   Archives stay out of git on purpose: a binary zip committed per version
   bloats the repository and fills history with blobs nobody can diff. The
-  script first proves that `plugin/dsh-renpy-toolkit/VERSION`, `__version__`, `pyproject.toml`
+  script first proves that `dsh-plugin/dsh-renpy-toolkit/VERSION`, `__version__`, `pyproject.toml`
   and the CHANGELOG section agree, because a release whose tag and contents
   disagree is worse than no release.
 - `tools/check_portable.py` validates both archives from a clean unzip, running

@@ -5,7 +5,7 @@
 #
 # 插件做的事：向 ctx.tools 注册三个工具（renpy_inspect / renpy_translate /
 # renpy_check），向 ctx.skills 注册随包附带的 renpy-toolkit skill。
-# 真正的运算由同包内的 Python 包（plugin/dsh-renpy-toolkit/renpy_toolkit）完成，
+# 真正的运算由同包内的 Python 包（dsh-plugin/dsh-renpy-toolkit/renpy_toolkit）完成，
 # 只用标准库，不需要 pip 安装任何东西。
 #
 # 可选的 config（全部省略即用默认值）：

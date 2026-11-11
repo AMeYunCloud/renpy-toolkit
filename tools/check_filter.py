@@ -21,7 +21,7 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "plugin", "dsh-renpy-toolkit"))
+sys.path.insert(0, os.path.join(ROOT, "dsh-plugin", "dsh-renpy-toolkit"))
 
 from renpy_toolkit import tl, tlgen  # noqa: E402
 

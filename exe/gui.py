@@ -35,6 +35,7 @@ import traceback
 from dataclasses import dataclass, field
 
 from renpy_toolkit import engine
+from renpy_toolkit import tl as tlmod
 
 CONFIG_NAME = "config.json"
 DEFAULT_LANGUAGE = "chinese"
@@ -1019,10 +1020,33 @@ class Api:
     def outdir(self) -> str:
         return os.path.join(self.base, OUTPUT_DIR_NAME)
 
+    def _resolved_language(self, language: str) -> tuple[str, str]:
+        """Return the spelling ``tl/`` uses, plus a note when it differs.
+
+        Ren'Py treats language names as case-sensitive identifiers, while Windows
+        treats ``tl/Chinese`` and ``tl/chinese`` as one folder.  A block written as
+        ``translate chinese`` inside ``tl/Chinese`` is therefore silently never read,
+        with no error anywhere.  Correct the spelling instead of failing, and say so.
+        """
+        if not self.game or not language:
+            return language, ""
+        tls = os.path.join(self.game.game_dir, "tl")
+        try:
+            exact = tlmod.resolve_language(tls, language)
+        except Exception:
+            return language, ""
+        if exact == language:
+            return exact, ""
+        return exact, (
+            "语言名 %r 已按现有目录改为 %r：tl/ 目录名区分大小写。"
+            % (language, exact)
+        )
+
     def _ctx(self) -> Ctx:
+        language, _ = self._resolved_language(self.language)
         return Ctx(
             root=self.game.root if self.game else "",
-            language=self.language,
+            language=language,
             outdir=self.outdir,
             xlsx=self.xlsx or None,
             reference=self.reference or None,
@@ -1046,7 +1070,8 @@ class Api:
                 else None
             ),
             "version": _version(),
-            "language": self.language,
+            "language": self._resolved_language(self.language)[0],
+            "language_note": self._resolved_language(self.language)[1],
             "backup_mode": self.backup_mode,
             "scan_info": scan_info,
             "outdir": self.outdir,
@@ -1159,6 +1184,7 @@ class Api:
         hardcoded: bool | None = None,
     ) -> dict:
         self.language = (language or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
+        self.language, language_note = self._resolved_language(self.language)
         self.backup_mode = backup_mode if backup_mode in BACKUP_MODES else "bak"
         if xlsx is not None:
             self.xlsx = xlsx.strip()
@@ -1175,7 +1201,9 @@ class Api:
         self.config["language"] = self.language
         self.config["backup_mode"] = self.backup_mode
         err = save_config(self.base, self.config)
-        return {"ok": True, "error": err} if err else {"ok": True}
+        if err:
+            return {"ok": True, "error": err, "language_note": language_note}
+        return {"ok": True, "language": self.language, "language_note": language_note}
 
     def suggest_xlsx(self) -> dict:
         """把数据目录里最新的 xlsx 路径回填到界面（导出后直接能回填）。"""

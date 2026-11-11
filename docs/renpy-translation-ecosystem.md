@@ -28,7 +28,7 @@
 
 3. **`extract_strings` / `merge_strings` 的 JSON 中转是被严重低估的中庸方案。** 官方 CLI 自带 `dialogue <lang>`（导出 TSV/Markdown）、`extract_strings <lang> <dest.json>`、`merge_strings <lang> <src.json>`（含 `--reverse` / `--replace`，且隐含 `--compile`），可以做到"提取 → 外部表格/AI 翻译 → 回填"，全程不碰反编译、不动标识符。缺点只覆盖**对话与 strings**，不覆盖图像/样式/非标准写法【官方 CLI 文档】。
 
-4. **`rpa` 解包层已经非常成熟且规格公开**，本工作区 [`plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py) 与 [`docs/rpa-format-spec.md`](./rpa-format-spec.md) 已覆盖 RPA-2.0/3.0 的读写；社区等价物是 `shizmob/rpatool`（已迁 Codeberg）与 PyPI 包 `unrpa`（`Lattyware/unrpa`）。**rpa 层不是汉化的瓶颈**——瓶颈在 `.rpyc`【仓库 README+本工作区】【官方文档·推测：rpa 只做索引/XOR 混淆，不是加密】。
+4. **`rpa` 解包层已经非常成熟且规格公开**，本工作区 [`dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py) 与 [`docs/rpa-format-spec.md`](./rpa-format-spec.md) 已覆盖 RPA-2.0/3.0 的读写；社区等价物是 `shizmob/rpatool`（已迁 Codeberg）与 PyPI 包 `unrpa`（`Lattyware/unrpa`）。**rpa 层不是汉化的瓶颈**——瓶颈在 `.rpyc`【仓库 README+本工作区】【官方文档·推测：rpa 只做索引/XOR 混淆，不是加密】。
 
 5. **`.rpyc` 反编译是整条链上最脆弱的一环，且随版本断裂。** 官方从不承诺 `.rpyc` 格式稳定；社区观测到的断代点是 Ren'Py 7→8（Python 2.7 → Python 3），表现为"老 unren 对新引擎报错"。中文社区教程已把"按 SDK 大版本选 unren 版本"明确写进流程【教程】。
 
@@ -73,7 +73,7 @@
 | `Chinese-UnRPA` | `Fppk/Chinese-UnRPA` | 搜索命中，描述"中文版 UnRPA，用于解包 ren'py" | 汉化版 UI 包装，功能应等价；细节**未能核实** | 【搜索条目】 |
 | `rpaextract` | `Kaskadee/rpaextract` | 搜索命中，描述 "An application for extracting contents from Ren'py archives" | 图形化提取工具；依赖/版本**未能核实** | 【搜索条目】 |
 | `UnRen*.bat` | `F95Sam/UnRen`（73 stars 抓取时点，Batchfile；Linux 移植 `Linux-gaming-wine/UnRen-Linux`） | 真实存在；上游讨论帖在 f95zone（`UnRen.bat v1.0.11d`） | **一体化批处理**：RPA 解包 + RPYC 反编译 + 控制台/开发者菜单开启 + 一些档案修补。中文教程把它当作"一次解决第 2、3 步"的入口 | 【仓库 README+论坛】 |
-| 本工作区实现 | [`plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py) | 本仓库自研 | RPA-2.0/3.0 读写：`RPAError`、`Entry(name/offset/length/prefix)`、`normalise_name()`、`_read_header()`；不依赖第三方 | 【本工作区】 |
+| 本工作区实现 | [`dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py`](../dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/rpa.py) | 本仓库自研 | RPA-2.0/3.0 读写：`RPAError`、`Entry(name/offset/length/prefix)`、`normalise_name()`、`_read_header()`；不依赖第三方 | 【本工作区】 |
 
 ### 3.2 反编译（`.rpyc` → `.rpy`）
 
@@ -92,7 +92,7 @@
 | `renpy-translator`（作者封装版） | `Dclef/renpy-translator` | 真实存在；2 stars（抓取时点）、AGPL-3.0；About "renpy翻译工具 renpy tl to google trans" | 与上游同名、作者不同的实现/包装；与上游的关系**未能核实** | 【仓库 README】 |
 | 重命名 X- 前缀工具 | 作者 `dclef` 自述"源码已放在 github 上"（具体 repo **未能核实**） | 教程级 | 安卓包的资源常带 `X-` 前缀，需批量重命名；作者声明"只能重命名当前目录下的文件，不能处理子目录" | 【教程】 |
 | VSCode + Comment Translate | 第三方 VSCode 插件 | 教程级 | 悬停翻译字符串，逐句人肉翻译；可切 Google/Baidu/Bing，百度通用翻译需 APP ID + 密钥；**必须卸载 VSCode Python 扩展**否则悬停不显示；速度过快会超时 | 【教程】 |
-| 本工作区插件 | `plugin/dsh-renpy-toolkit/renpy_toolkit/` | 本仓库自研 | 面向 `tl/<lang>` 的读写与校验（参见 `official-cli-and-translation.md` 描述的官方格式约束） | 【本工作区】 |
+| 本工作区插件 | `dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/` | 本仓库自研 | 面向 `tl/<lang>` 的读写与校验（参见 `official-cli-and-translation.md` 描述的官方格式约束） | 【本工作区】 |
 
 > 说明：`renpy-tools` 这个仓库名没有找到可靠对应物（官方 SDK 中的 `rpatool`/`unrpa` 与社区 `shizmob/rpatool` 是两个来源）。使用者口中的"renpy-tools 自带 rpatool"多半是把 **SDK 的 `launcher/game/tools/`** 与社区 rpatool 混称——**未能核实**。
 
@@ -205,7 +205,7 @@ translate chinese python:
 
 ### 6.3 它与本工具包的定位差异（重要）
 
-| 维度 | Dclef/renpy-tl | 本工具包（`plugin/dsh-renpy-toolkit/renpy_toolkit`） |
+| 维度 | Dclef/renpy-tl | 本工具包（`dsh-plugin/dsh-renpy-toolkit/renpy_toolkit`） |
 | --- | --- | --- |
 | 产出物 | 面向人类的教程文档 | 面向程序的工具库（`.rpa` / `.rpyc` / `tl` 读写与校验） |
 | 是否有代码 | 仅文档 + 若干下载工具的分发链接 | 有，`rpa.py` 等 |

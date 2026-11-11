@@ -22,7 +22,7 @@
   },
   "files": [
     "lib",
-    "plugin/dsh-renpy-toolkit/renpy_toolkit",
+    "dsh-plugin/dsh-renpy-toolkit/renpy_toolkit",
     "skills",
     "cordis.patch.yml",
     "README.md",

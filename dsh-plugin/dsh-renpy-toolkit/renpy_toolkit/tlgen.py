@@ -54,7 +54,7 @@ import time
 from dataclasses import dataclass, field
 
 from .errors import InvalidRequestError, ToolkitError
-from .tl import format_value, unescape_value
+from .tl import format_value, resolve_language, unescape_value
 from . import safeio
 
 __all__ = [
@@ -1061,6 +1061,12 @@ class GenerateResult:
     scratch_removed: bool = False
     """True when the temporary probe tree was deleted after the run."""
 
+    language_note: str = ""
+    """Set when the requested language name was re-spelled to match an existing
+    ``tl/<language>`` folder. Language names are case-sensitive in Ren'Py, so
+    writing ``chinese`` into a folder named ``Chinese`` produces blocks the engine
+    never reads; the caller should say so rather than silently correcting it."""
+
     scratch_root: str = ""
     """The toolkit scratch directory this run used.
 
@@ -1753,6 +1759,21 @@ def generate_tl(
     if not os.path.isdir(game_dir):
         raise InvalidRequestError(f"{rt.root}: 没有 game/ 目录")
 
+    # Language names are case-sensitive in Ren'Py: `translate Chinese ...` only applies
+    # when the game's language is spelled `Chinese`. Windows would happily write into
+    # tl/Chinese while the requested name was `chinese`, leaving files the engine never
+    # reads -- no error, just the original text on screen. Mirror the folder's spelling.
+    requested = language
+    language = resolve_language(os.path.join(game_dir, "tl"), language)
+    language_note = ""
+    if language != requested:
+        language_note = (
+            "language name %r resolved to %r: tl/ folder names are "
+            "case-sensitive in Ren'Py" % (requested, language)
+        )
+        if log is not None:
+            log.append(language_note)
+
     out = os.path.abspath(outdir) if outdir else ""
     scratch_base = _writable_scratch(rt, out)
     scratch = _scratch_dir(os.path.abspath(rt.root), scratch_base)
@@ -1786,7 +1807,10 @@ def generate_tl(
         shutil.rmtree(out, ignore_errors=True)
     os.makedirs(out, exist_ok=True)
 
-    result = GenerateResult(language=language, outdir=out, scratch_root=scratch)
+    result = GenerateResult(
+        language=language, outdir=out, scratch_root=scratch
+    )
+    result.language_note = language_note
 
     # Decompiling is opt-in only: the probe reads strings from the live AST
     # (``renpy.game.script``), so writing .rpy files costs about half a minute

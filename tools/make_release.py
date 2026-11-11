@@ -8,7 +8,7 @@
 Why a script rather than a documented ``gh release create`` command: a release
 has to satisfy several properties at once, and getting one wrong is silent.
 
-* The tag must match ``plugin/dsh-renpy-toolkit/VERSION``. A release whose name
+* The tag must match ``dsh-plugin/dsh-renpy-toolkit/VERSION``. A release whose name
   says 1.0.0 while the archive reports 1.0.1 is worse than no release at all.
 * Both archives must be freshly built from the current tree, never stale files
   left over in ``dist/``.
@@ -115,7 +115,7 @@ def _run(argv: list[str], *, dry: bool, capture: bool = False) -> str:
 
 
 def _version_consistency() -> list[str]:
-    """Everything that names a version must agree with plugin/dsh-renpy-toolkit/VERSION."""
+    """Everything that names a version must agree with dsh-plugin/dsh-renpy-toolkit/VERSION."""
     problems: list[str] = []
 
     version_file = os.path.join(SRC_PLUGIN, "VERSION")
@@ -123,7 +123,7 @@ def _version_consistency() -> list[str]:
         with open(version_file, encoding="utf-8") as fh:
             on_disk = fh.read().strip()
         if on_disk != VERSION:
-            problems.append("plugin/dsh-renpy-toolkit/VERSION says %r but build_release reports %r"
+            problems.append("dsh-plugin/dsh-renpy-toolkit/VERSION says %r but build_release reports %r"
                             % (on_disk, VERSION))
 
     init_py = os.path.join(SRC_PLUGIN, "renpy_toolkit", "__init__.py")
@@ -132,7 +132,7 @@ def _version_consistency() -> list[str]:
             text = fh.read()
         match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', text)
         if not match:
-            problems.append("no __version__ in plugin/dsh-renpy-toolkit/renpy_toolkit/__init__.py")
+            problems.append("no __version__ in dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/__init__.py")
         elif match.group(1) != VERSION:
             problems.append("__init__.__version__ is %r, expected %r"
                             % (match.group(1), VERSION))

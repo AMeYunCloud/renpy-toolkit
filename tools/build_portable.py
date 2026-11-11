@@ -15,7 +15,7 @@ What ends up in ``dist/portable/renpy-toolkit-<version>/``::
     renpy-toolkit.py          entry point for every target platform
     renpy-toolkit.cmd         Windows double-click launcher
     renpy-toolkit.sh          POSIX launcher (chmod +x)
-    renpy_toolkit/            the package, copied from plugin/dsh-renpy-toolkit/
+    renpy_toolkit/            the package, copied from dsh-plugin/dsh-renpy-toolkit/
     README.txt                plain-text quick start (zip-friendly)
     自检.cmd / selfcheck.sh   run the built-in verification
     VERSION, MANIFEST.sha256  same provenance as dist/plugin
@@ -31,7 +31,7 @@ The three launcher files contain no logic of their own: they hand over to
 ``python renpy-toolkit.py``. Keeping logic in one Python file means Windows and
 POSIX behave identically, and there is one place to fix a bug.
 
-Source of truth is ``plugin/dsh-renpy-toolkit/`` (via ``dist/plugin`` when it is
+Source of truth is ``dsh-plugin/dsh-renpy-toolkit/`` (via ``dist/plugin`` when it is
 up to date); see ``tools/build_release.py``. This script imports the file filter
 from it so the two distributions can never disagree about what counts as a
 releasable file.
@@ -459,7 +459,7 @@ def make_zip() -> int:
 # and the people most likely to want that are not necessarily running ``git``.
 # A zip also keeps the skill usable on its own: it ships the launcher and the
 # document, and finds the toolkit through ``$RPTK_HOME`` or a sibling
-# ``plugin/dsh-renpy-toolkit/``.
+# ``dsh-plugin/dsh-renpy-toolkit/``.
 #
 # The bundle deliberately does *not* embed the package. Duplicating 1 MB of
 # Python into every skill zip would make the two copies drift, and the skill's
@@ -480,12 +480,12 @@ SKILL_README = """renpy-toolkit skill {version} -- how to install
 
        $RPTK_HOME/renpy_toolkit/__init__.py   (set RPTK_HOME to the folder
                                                that contains renpy_toolkit/)
-       ../../plugin/dsh-renpy-toolkit/renpy_toolkit/__init__.py
+       ../../dsh-plugin/dsh-renpy-toolkit/renpy_toolkit/__init__.py
                                               (a checkout's own plugin/)
        ./plugin/renpy_toolkit/__init__.py
 
    So a git checkout of renpy-toolkit needs nothing at all: the skill lives in
-   ``skills/renpy-toolkit/`` and finds ``plugin/dsh-renpy-toolkit/`` two levels
+   ``skills/renpy-toolkit/`` and finds ``dsh-plugin/dsh-renpy-toolkit/`` two levels
    up. If you only have the portable zip, unpack it anywhere and set
    ``RPTK_HOME`` to that folder.
 

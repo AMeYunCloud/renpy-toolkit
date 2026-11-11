@@ -194,7 +194,7 @@ def substitute(s, scope=None, force=False, translate=True):
 
 ```powershell
 # 1. 跑插件自己的测试
-cd plugin\dsh-renpy-toolkit
+cd dsh-plugin\dsh-renpy-toolkit
 python -m unittest discover -s tests -t tests -q
 
 # 2. 拿成品译料验误报（应为 2 条，均为真缺陷）

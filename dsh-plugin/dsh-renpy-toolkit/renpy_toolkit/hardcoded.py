@@ -200,12 +200,16 @@ def ledger_path(tl_dir: str, language: str | None = None) -> str:
     ledger be written outside the language tree.
     """
     root = tl_dir
-    if language and os.path.basename(os.path.normpath(tl_dir)) != language:
+    if language and os.path.basename(os.path.normpath(tl_dir)).lower() != language.lower():
         if not LANGUAGE_RE.match(language):
             raise InvalidRequestError(
                 f"invalid language name {language!r}: expected a plain identifier"
             )
         candidate = os.path.join(tl_dir, language)
+        if os.path.isdir(tl_dir):
+            from . import tl as tlmod
+
+            candidate = os.path.join(tl_dir, tlmod.resolve_language(tl_dir, language))
         if os.path.isdir(candidate) or not os.path.isdir(tl_dir):
             root = candidate
     return os.path.join(root, LEDGER_NAME)

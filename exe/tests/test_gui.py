@@ -6,7 +6,7 @@
 界面本身不做自动化测试：窗口的断言价值低、跑起来还要显示器。但"点哪个
 按钮跑哪条命令"必须被钉住——那是真正会改用户文件的部分。
 
-本目录属于仓库顶层 `exe/`，与 `plugin/dsh-renpy-toolkit` 分开：exe 会 import
+本目录属于仓库顶层 `exe/`，与 `dsh-plugin/dsh-renpy-toolkit` 分开：exe 会 import
 `renpy_toolkit`，所以这里先把插件包目录塞进 sys.path，再 import 同级的 `gui`。
 运行：`python -m unittest discover -s exe/tests -t exe/tests`
 """
@@ -22,7 +22,7 @@ import unittest
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _EXE = os.path.dirname(_HERE)
 _ROOT = os.path.dirname(_EXE)
-for _path in (os.path.join(_ROOT, "plugin", "dsh-renpy-toolkit"), _EXE):
+for _path in (os.path.join(_ROOT, "dsh-plugin", "dsh-renpy-toolkit"), _EXE):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
@@ -315,6 +315,42 @@ class TestBrowserProfile(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             got = gui.browser_profile_root(os.path.join(root, "数据"))
             self.assertTrue(os.path.isdir(got))
+
+
+class TestLanguageCase(unittest.TestCase):
+    """Language folder names are case-sensitive; the GUI must follow the folder."""
+
+    def _api(self, languages=("Chinese",)):
+        root = _util.tempdir_for(self)
+        os.makedirs(os.path.join(root, "game"))
+        for name in languages:
+            os.makedirs(os.path.join(root, "game", "tl", name))
+        api = gui.Api(base=root)
+        api.game = gui.Game(root, os.path.basename(root), None)
+        return api
+
+    def test_lowercase_request_follows_the_folder_spelling(self):
+        api = self._api()
+        api.language = "chinese"
+        self.assertEqual(api._ctx().language, "Chinese")
+
+    def test_the_correction_is_reported_rather_than_silent(self):
+        api = self._api()
+        api.language = "chinese"
+        note = api._payload()["language_note"]
+        self.assertIn("Chinese", note)
+        self.assertIn("区分大小写", note)
+
+    def test_exact_spelling_produces_no_note(self):
+        api = self._api()
+        api.language = "Chinese"
+        self.assertEqual(api._payload()["language_note"], "")
+
+    def test_a_brand_new_language_keeps_the_typed_spelling(self):
+        api = self._api()
+        api.language = "korean"
+        self.assertEqual(api._ctx().language, "korean")
+        self.assertEqual(api._payload()["language_note"], "")
 
 
 if __name__ == "__main__":
