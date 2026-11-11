@@ -319,3 +319,56 @@ class TestBrowserProfile(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestGenOptions(unittest.TestCase):
+    """生成选项（分块注释/索引、硬编码文本）必须真的落到命令行上。"""
+
+    def ctx(self, **kw) -> gui.Ctx:
+        base = dict(root=ROOT, language="chinese")
+        base.update(kw)
+        return gui.Ctx(**base)
+
+    def test_default_has_no_annotation_flags(self) -> None:
+        preview, writes = gui.build_action("gen", self.ctx())
+        for flag in ("--sections", "--index", "--no-hardcoded"):
+            self.assertNotIn(flag, preview)
+            self.assertNotIn(flag, writes[0])
+
+    def test_annotation_switch_adds_sections_and_index(self) -> None:
+        preview, writes = gui.build_action("gen", self.ctx(annotate=True))
+        for argv in (preview, writes[0]):
+            self.assertIn("--sections", argv)
+            self.assertIn("--index", argv)
+
+    def test_hardcoded_can_be_disabled(self) -> None:
+        preview, writes = gui.build_action("gen", self.ctx(hardcoded=False))
+        self.assertIn("--no-hardcoded", preview)
+        self.assertIn("--no-hardcoded", writes[0])
+
+
+class TestLogTranslation(unittest.TestCase):
+    """常用命令行输出要翻成中文；翻不了的原样保留。"""
+
+    def test_common_lines(self) -> None:
+        cases = {
+            "wrote 3 file(s) to D:/t": "已写入 3 个文件到 D:/t",
+            "would write 4 file(s) to D:/t": "将写入 4 个文件到 D:/t（这是预演，还没动文件）",
+            "51 file(s) already present, left untouched": "51 个文件已存在，保持不动",
+            "OK": "检查通过",
+            "nothing to emit": "没有可处理的内容",
+        }
+        for english, chinese in cases.items():
+            self.assertEqual(gui._zh_line(english), chinese, english)
+
+    def test_coverage_line(self) -> None:
+        line = (
+            "53 file(s), 58249 translate block(s), 2705 string(s); "
+            "coverage 60948/60954 (100.0%); 0 error(s), 23 warning(s)"
+        )
+        out = gui._zh_line(line)
+        self.assertIn("53 个文件", out)
+        self.assertIn("58249 个翻译块", out)
+        self.assertIn("0 个错误", out)
+
+    def test_unknown_line_is_untouched(self) -> None:
+        self.assertEqual(gui._zh_line("some random output"), "some random output")

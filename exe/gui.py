@@ -22,6 +22,7 @@ import http.server
 import io
 import json
 import os
+import re
 import shutil
 import socket
 import socketserver
@@ -51,6 +52,46 @@ EXIT_HINTS = {
     2: "命令用法有误（属于工具内部问题，请反馈）",
     3: "环境不具备：缺 git，或缺能运行游戏的 Ren'Py 运行时",
 }
+
+# 命令行输出是英文的。界面里直接显示英文，用户看不懂「哪一步失败了」。
+# 这里只翻译**固定的模板行**；路径、句名等变量部分原样保留，翻不了的行也原样显示。
+_LOG_ZH = (
+    (
+        re.compile(
+            r"^(\d+) file\(s\), (\d+) translate block\(s\), (\d+) string\(s\); "
+            r"coverage ([\d,]+)/([\d,]+) \(([\d.]+%)\); (\d+) error\(s\), (\d+) warning\(s\)$"
+        ),
+        r"\1 个文件，\2 个翻译块，\3 条字符串；覆盖率 \4/\5（\6）；\7 个错误，\8 条提示",
+    ),
+    (
+        re.compile(r"^(\d+) translate block\(s\), (\d+) string\(s\) in (\d+) file\(s\)(.*)$"),
+        r"\1 个翻译块、\2 条字符串，分布在 \3 个文件\4",
+    ),
+    (re.compile(r"^wrote (\d+) file\(s\) to (.+)$"), r"已写入 \1 个文件到 \2"),
+    (
+        re.compile(r"^would write (\d+) file\(s\) to (.+)$"),
+        r"将写入 \1 个文件到 \2（这是预演，还没动文件）",
+    ),
+    (re.compile(r"^(\d+) file\(s\) already present, left untouched$"), r"\1 个文件已存在，保持不动"),
+    (re.compile(r"^(\d+) file\(s\) decompiled$"), r"反编译了 \1 个文件"),
+    (
+        re.compile(r"^(\d+) f-string\(s\) cannot be translated.*$"),
+        r"\1 条 f-string 是运行时拼出来的，无法按原样翻译（需要改源码或加补丁）",
+    ),
+    (re.compile(r"^nothing to (emit|sort|scan|do)$"), r"没有可处理的内容"),
+    (re.compile(r"^OK$"), "检查通过"),
+    (re.compile(r"^(\d+) error\(s\), (\d+) warning\(s\)$"), r"\1 个错误，\2 条提示"),
+)
+
+
+def _zh_line(text: str) -> str:
+    """把一行命令行输出尽量翻成中文；翻不了的原样返回。"""
+    s0 = text
+    for pattern, repl in _LOG_ZH:
+        out = pattern.sub(repl, s0)
+        if out != s0:
+            return out
+    return s0
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +267,11 @@ class Ctx:
     dest: str | None = None
     fonts: tuple[str, ...] = field(default_factory=tuple)
     outdir: str | None = None
+    # 生成选项：annotate 控制「分块注释 + Event Index」，默认关（标签由脚本推断，
+    # 可能与真实剧情块有偏差）；hardcoded 控制「未包 _() 的界面文本收进 strings」，
+    # 默认开——它决定了界面汉化的完整度。
+    annotate: bool = False
+    hardcoded: bool = True
 
     @property
     def game_dir(self) -> str:
@@ -291,9 +337,15 @@ def build_action(key: str, ctx: Ctx) -> tuple[list[str] | None, list[list[str]]]
     if key == "audit":
         return ["project", "audit", root], []
     if key == "gen":
+        extra: list[str] = []
+        if ctx.annotate:
+            extra += ["--sections", "--index"]
+        if not ctx.hardcoded:
+            extra.append("--no-hardcoded")
+        base = ["tl", "gen", root, lang, "--outdir", tl]
         return (
-            ["tl", "gen", root, lang, "--outdir", tl],
-            [["tl", "gen", root, lang, "--outdir", tl, "--write", "--clean-scratch"]],
+            base + extra,
+            [base + ["--write", "--clean-scratch"] + extra],
         )
     if key == "verify":
         return ["tl", "verify", tl, "--max-items", "300"], []
@@ -407,6 +459,30 @@ def explain_error(exc: BaseException) -> tuple[str, str]:
 # 消息特征 → 下一步。写成表而不是一串 if，是因为这些文案会随实测不断加。
 _HINT_RULES: tuple[tuple[str, str], ...] = (
     ("还没有选择", "先在「参数」里选好要用的 Excel 或旧译本目录，再点这个按钮。"),
+    (
+        "不是 Ren'Py 游戏",
+        "点「浏览…」选中游戏的根目录（它下面必须有 game\\ 子目录），再点「环境体检」确认。",
+    ),
+    (
+        "没有 game/ 目录",
+        "选的是游戏根目录吗？它下面必须有一个 game\\ 子目录。如果选的是上一层文件夹，请再往下一层。",
+    ),
+    (
+        "No module named",
+        "用一键包里的 renpy-toolkit.exe 运行（依赖已打包进去）。用系统 python 直接跑源码才会缺模块。",
+    ),
+    (
+        "A translation for",
+        "同一句原文被翻译了两次。先点「校验译文」，按日志里的 文件:行号 删掉重复的那条，再重跑。",
+    ),
+    (
+        "PermissionError",
+        "目标文件被占用或没有写权限。先关掉游戏和编辑器；工具不要放在 C:\\Program Files 或系统目录。",
+    ),
+    (
+        "Access is denied",
+        "没有写权限。把整个工具目录移到有写权限的子目录（例如 D:\\games\\ 下面），再打开。",
+    ),
     ("没有找到字体文件", "把 .ttf/.otf/.ttc 放进游戏的 game/ 目录，或在「字体」里填上字体路径。"),
     ("找不到可用的 git", "装 Git 并把 git.exe 加进 PATH；或者把备份方式改成 bak。"),
     ("没有找到 .rpa", "把目标指到含 game\\ 子目录的游戏根目录，或直接指某一个 .rpa 文件。"),
@@ -903,6 +979,10 @@ class Api:
             self.backup_mode = "bak"
         self.xlsx = str(self.config.get("xlsx") or "")
         self.reference = str(self.config.get("reference") or "")
+        self.annotate = bool(self.config.get("annotate", False))
+        self.hardcoded = bool(self.config.get("hardcoded", True))
+        # 上一次 tl gen 报告里的硬编码条目数（None 表示这条命令不产出这个数字）
+        self.last_hardcoded: int | None = None
         self.logs: list[tuple[str, str]] = []
         self._log_lock = threading.Lock()
         self._busy = threading.Lock()
@@ -943,6 +1023,8 @@ class Api:
             outdir=self.outdir,
             xlsx=self.xlsx or None,
             reference=self.reference or None,
+            annotate=self.annotate,
+            hardcoded=self.hardcoded,
         )
 
     def _prepare_dirs(self) -> None:
@@ -968,6 +1050,8 @@ class Api:
             "mode": self.mode,
             "xlsx": self.xlsx,
             "reference": self.reference,
+            "annotate": self.annotate,
+            "hardcoded": self.hardcoded,
             "groups": actions_by_group(),
         }
 
@@ -1068,6 +1152,8 @@ class Api:
         backup_mode: str,
         xlsx: str | None = None,
         reference: str | None = None,
+        annotate: bool | None = None,
+        hardcoded: bool | None = None,
     ) -> dict:
         self.language = (language or DEFAULT_LANGUAGE).strip() or DEFAULT_LANGUAGE
         self.backup_mode = backup_mode if backup_mode in BACKUP_MODES else "bak"
@@ -1077,6 +1163,12 @@ class Api:
         if reference is not None:
             self.reference = reference.strip()
             self.config["reference"] = self.reference
+        if annotate is not None:
+            self.annotate = bool(annotate)
+        if hardcoded is not None:
+            self.hardcoded = bool(hardcoded)
+        self.config["annotate"] = self.annotate
+        self.config["hardcoded"] = self.hardcoded
         self.config["language"] = self.language
         self.config["backup_mode"] = self.backup_mode
         err = save_config(self.base, self.config)
@@ -1134,6 +1226,7 @@ class Api:
         try:
             ctx = self._ctx()
             self._prepare_dirs()
+            self.last_hardcoded = None
             preview, writes = build_action(key, ctx)
             if writes and not confirm:
                 text = ""
@@ -1162,7 +1255,12 @@ class Api:
             if worst and _informational(last_text):
                 # 例如游戏没有 .rpa 归档、工程没有硬编码字体：不是错误，只是没内容可处理。
                 return {"ok": True, "code": 0, "hint": "没有可处理的内容（见日志）。"}
-            return {"ok": worst == 0, "code": worst, "hint": EXIT_HINTS.get(worst, "")}
+            return {
+                "ok": worst == 0,
+                "code": worst,
+                "hint": EXIT_HINTS.get(worst, ""),
+                "hardcoded": self.last_hardcoded,
+            }
         except Exception as exc:
             msg, hint = explain_error(exc)
             return {"error": msg, "hint": hint}
@@ -1216,6 +1314,11 @@ class Api:
             buf.append((traceback.format_exc(limit=3), "dim"))
             self._flush_log(buf, argv, code or 2)
             return 2, capture.getvalue()
+        if argv[:2] == ["tl", "gen"]:
+            m = re.search(r"硬编码文本块\s*(\d+)\s*条", capture.getvalue())
+            if m:
+                self.last_hardcoded = int(m.group(1))
+                buf.append(("本次生成：硬编码文本 %d 条（已收入 strings 块）" % self.last_hardcoded, "ok"))
         if code:
             buf.append(("退出码 %d：%s" % (code, EXIT_HINTS.get(code, "")), "warn"))
         self._flush_log(buf, argv, code)
@@ -1239,17 +1342,17 @@ class Api:
         total = len(buf)
         if total <= self.HEAD_LINES + self.TAIL_LINES:
             for text, cls in buf:
-                self.emit(text, cls)
+                self.emit(_zh_line(text), cls)
         else:
             for text, cls in buf[: self.HEAD_LINES]:
-                self.emit(text, cls)
+                self.emit(_zh_line(text), cls)
             self.emit(
                 "… 中间省略 %d 行（完整输出在下面的日志文件里）…"
                 % (total - self.HEAD_LINES - self.TAIL_LINES),
                 "dim",
             )
             for text, cls in buf[-self.TAIL_LINES :]:
-                self.emit(text, cls)
+                self.emit(_zh_line(text), cls)
         if path:
             self.emit("完整输出：%s" % path, "dim")
 

@@ -116,3 +116,6 @@ _dist/release-notes-*.md
 /_t/
 
 /renpy-toolkit-*.log
+# 忽略 exe/ 下运行时产生的数据目录与日志（构建/自检会造出来）
+/exe/renpy-toolkit-数据/
+/exe/renpy-toolkit-*.log

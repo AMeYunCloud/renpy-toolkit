@@ -320,7 +320,8 @@ class TestGeneratedReminder(unittest.TestCase):
 
         path = self._write()
         sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
-        text = io.open(path, encoding="utf-8").read()
+        with io.open(path, encoding="utf-8") as fh:
+            text = fh.read()
         self.assertIn(sorttl.INDEX_NOTE, text)
         # inside the index block, not floating in the body
         lines = text.split("\n")
@@ -332,9 +333,11 @@ class TestGeneratedReminder(unittest.TestCase):
 
         path = self._write()
         sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
-        first = io.open(path, encoding="utf-8", newline="").read()
+        with io.open(path, encoding="utf-8", newline="") as fh:
+            first = fh.read()
         again = sorttl.sort_tl_path(path, write_index=True, dry_run=False, backup=False)
-        second = io.open(path, encoding="utf-8", newline="").read()
+        with io.open(path, encoding="utf-8", newline="") as fh:
+            second = fh.read()
         self.assertEqual(first, second)
         self.assertFalse(again.changed)
         self.assertEqual(first.count(sorttl.INDEX_NOTE), 1)
@@ -345,7 +348,8 @@ class TestGeneratedReminder(unittest.TestCase):
         path = self._write()
         sorttl.sort_tl_path(path, sections=True, dry_run=False, backup=False)
         sorttl.sort_tl_path(path, sections=True, dry_run=False, backup=False)
-        text = io.open(path, encoding="utf-8").read()
+        with io.open(path, encoding="utf-8") as fh:
+            text = fh.read()
         self.assertEqual(text.count(sorttl.INDEX_NOTE), 1)
         self.assertIn("# --- start_aaa ---", text)
 

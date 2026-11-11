@@ -83,6 +83,20 @@ after a Ren'Py upgrade.
 - `tl gen`, `project audit` and `decompile dir` gained `--allow-non-renpy` as an
   escape hatch; the GUI simply refuses and says which evidence was missing.
 
+**Windows exe (GUI)**
+
+- The window gained the two generation switches: 「分块注释与索引」 (off by default;
+  maps to `--sections --index`) and 「硬编码文本」 (on; `--no-hardcoded` turns it off).
+  Both are remembered in `config.json`.
+- The hardcoded entry count is surfaced after a generate run: a dedicated log line
+  (`本次生成：硬编码文本 11 条（已收入 strings 块）`) plus a toast, read from the CLI's
+  own report rather than recomputed by the UI.
+- Common CLI output lines are translated for display (`wrote N file(s) to ...`,
+  `N file(s) already present, left untouched`, the coverage/error summary). The log
+  file written to disk keeps the original English text, so bug reports stay useful.
+- Error hints now name the button that solves the problem inside the package
+  (not a Ren'Py game, `No module named`, duplicate `old`, permission errors, missing git).
+
 ### Fixed
 
 **Windows exe (GUI)**

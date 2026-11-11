@@ -56,6 +56,7 @@
     padding:16px 18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
   .card h2{font-size:15px;margin:0 0 12px;color:var(--text);font-weight:700;letter-spacing:.2px}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.chk{display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text);cursor:pointer;user-select:none;white-space:nowrap}
   .subrow{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
   .subrow .subhd{width:100%;color:var(--text-3);font-size:12px;letter-spacing:.3px;margin-bottom:2px}
   select,input[type=text]{background:var(--surface);color:var(--text);border:1px solid var(--line-strong);
@@ -224,6 +225,15 @@
           <label class="ver">旧译本目录</label>
           <input type="text" id="ref" placeholder="搬运旧译文用：填上一版 game\tl\chinese 的路径" spellcheck="false" class="wide">
           <span class="ver">只有「回填译文」「搬运旧译文」两个按钮需要</span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <label class="ver">生成选项</label>
+          <label class="chk" title="按源码标签推断，可能与实际剧情块有偏差，以源码为准">
+            <input type="checkbox" id="cbAnnotate"> 分块注释与索引（默认关）
+          </label>
+          <label class="chk" title="源码里没包 _() 的界面文字也收进 strings 块，界面汉化更完整">
+            <input type="checkbox" id="cbHardcoded" checked> 硬编码文本（推荐开启）
+          </label>
         </div>
       </div>
     </div>
@@ -546,6 +556,8 @@ function applyBoot(r) {
   if (r.outdir) $('logTitle').textContent = '运行日志 · ' + r.outdir;
   if (r.xlsx !== undefined) { $('xlsx').value = r.xlsx || ''; state.xlsx = r.xlsx || ''; }
   if (r.reference !== undefined) { $('ref').value = r.reference || ''; state.ref = r.reference || ''; }
+  $('cbAnnotate').checked = !!r.annotate;
+  $('cbHardcoded').checked = r.hardcoded !== false;
   const nb = $('notice');
   if (r.no_game_hint) {
     nb.innerHTML = '<b>没有找到游戏。</b>' + esc(r.no_game_hint);
@@ -615,6 +627,9 @@ async function runAction(key, label, confirm) {
       state.pending = null;
     } else {
       finalizeGroup(g, 'ok', { code: r.code });
+      if (r.hardcoded !== null && r.hardcoded !== undefined) {
+        toast('硬编码文本 ' + r.hardcoded + ' 条已收入 strings 块');
+      }
       state.pending = null;
     }
   } catch (e) {
@@ -690,14 +705,19 @@ async function savePrefs() {
   state.backup = $('backup').value;
   state.xlsx = $('xlsx').value;
   state.ref = $('ref').value;
+  state.annotate = $('cbAnnotate').checked;
+  state.hardcoded = $('cbHardcoded').checked;
   renderCtx();
   updateActions();
-  return api('save_prefs', state.lang, state.backup, state.xlsx, state.ref);
+  return api('save_prefs', state.lang, state.backup, state.xlsx, state.ref,
+             state.annotate, state.hardcoded);
 }
 $('lang').onchange = savePrefs;
 $('backup').onchange = savePrefs;
 $('xlsx').onchange = savePrefs;
 $('ref').onchange = savePrefs;
+$('cbAnnotate').onchange = savePrefs;
+$('cbHardcoded').onchange = savePrefs;
 $('btnPickXlsx').onclick = async () => {
   const r = await api('suggest_xlsx');
   if (r.error) { toast(r.error); return; }
