@@ -3,7 +3,7 @@
 A toolkit for **authoring assistance** and **translation (localization)** of Ren'Py
 games. Pure Python standard library; it does not depend on Ren'Py itself.
 
-It grew out of four upstream projects:
+It grew out of four upstream projects and the official Ren'Py documentation:
 
 | Upstream | What it provided |
 | --- | --- |
@@ -32,9 +32,9 @@ renpy-toolkit/
 ├── exe/                    the GUI (separate release line, not shipped) — DEPRECATED
 │   ├── gui.py              local HTTP server + system-browser window
 │   ├── ui/index.html       the interface
-│   └── tests/              30 pure-logic tests for the GUI
+│   └── tests/              39 pure-logic tests for the GUI
 ├── docs/                   reference notes (engine facts, format specs)
-├── tools/                  build_release / build_portable / build_exe / check_*
+├── tools/                  build_release / build_portable / build_exe / make_release / check_*
 └── dist/                   build output (not committed)
 ```
 
@@ -81,10 +81,24 @@ This line is fully independent of the other two: the interface source lives in
 `exe/`, the packages contain no UI code, and neither the plugin nor the skill ever
 invokes the exe.
 
-The window is a small local HTTP server plus your system browser opened in
-`--app` mode — no WebView2, no native bindings. On start it scans the exe's own
-folder and one level below for Ren'Py games and always shows a picker (zero, one
-or many games); one game is processed at a time.
+The window is a small local HTTP server opened as a **normal tab in your own
+browser** (it reuses the browser you already have open — no new profile, no
+WebView2, no native bindings); `renpy-toolkit.exe --app` gives a standalone
+window instead. On start it scans the exe's own folder and one level below and
+**only accepts real Ren'Py games**, decided by evidence (`RENPY RPC2` magic in
+`game/*.rpyc`, `RPA-3.0` archives, a `renpy/` runtime, a bundled `lib/py3-*`
+interpreter, a launcher that imports `renpy`, or Ren'Py source structure under
+`game/`); a folder with a `game/` but none of that is listed as rejected with the
+reason. It always shows a picker (zero, one or many games) and processes one game
+at a time; with no game at all it tells you to move the exe next to the game
+folder.
+
+**Closing the page closes the tool**: the page sends a heartbeat every four
+seconds and a `sendBeacon('/api/bye')` on `pagehide`; the server exits after 40
+seconds without a request (120 while a task is running), so no process is left
+behind. Three startup guards: a disk-root launch is refused with a modal that
+counts down ten seconds and closes itself; a second instance is blocked by a
+mutex; and the browser is only opened after the port really listens.
 
 Only the translation skeleton is written into the game (`game/tl/<language>/`).
 Everything else — logs, exported spreadsheets, decompiled scripts, backup

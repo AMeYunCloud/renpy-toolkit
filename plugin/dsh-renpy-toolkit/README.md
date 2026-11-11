@@ -645,9 +645,11 @@ python -m renpy_toolkit font map <game> --emit chinese
 它，所以 `dist/plugin`、便携 zip 和 skill 包里没有任何界面代码。
 
 界面不重写逻辑：每个按钮都翻译成一次 `cli.main(argv)` 调用，界面与命令行的行为
-（`--write` 语义、备份模式、退出码）永远一致。窗口先扫「exe 所在目录 + 一级子目录」
-里的 Ren'Py 游戏让你选一个；除「生成汉化骨架」写进 `game/tl/<语言>/` 外，其余产物
-都落在 exe 旁边的 `renpy-toolkit-数据/`。
+（`--write` 语义、备份模式、退出码）永远一致。窗口先扫「exe 所在目录 + 一级子目录」，
+**只认真正的 Ren'Py 游戏**（判定走 `renpy_toolkit/engine.py` 的证据链：`RENPY RPC2`
+编译脚本、`RPA` 归档、`renpy/` 运行时、`lib/py3-*`、启动脚本引用 renpy、源码结构），
+选了之后一次只处理一个；除「生成汉化骨架」写进 `game/tl/<语言>/` 外，其余产物
+都落在 exe 旁边的 `renpy-toolkit-数据/`。关掉网页后程序会自己退出（心跳 + `/api/bye`）。
 
 打 exe（必须在装了 PyInstaller 的解释器里跑，本机既定位置
 `E:\Programs\renpy-toolkit-build\venv`；`fontTools` 与 `openpyxl` 也要装在同一个解释器）：
@@ -701,7 +703,7 @@ python tools/build_release.py            # 生成 dist/plugin（VERSION + MANIFE
 python tools/build_release.py --verify   # 重新哈希，逐文件比对
 python tools/build_release.py --sync     # 用发布版覆盖 plugin/dsh-renpy-toolkit/
 python tools/build_portable.py --zip     # 生成 dist/portable 一键包与 .zip
-python tools/build_exe.py --clean        # 生成 dist/exe（onedir + onefile）并自检
+python tools/build_exe.py --clean        # 打单文件 exe（dist/exe/onefile）并自检
 python tools/check_portable.py           # 在干净解压副本上验收一键包
 python tools/make_release.py --dry-run    # 预览发版（版本校验 + 重建 + tag + Release）
 python tools/make_release.py              # 真的发版（推 tag + 上传两个 zip）
