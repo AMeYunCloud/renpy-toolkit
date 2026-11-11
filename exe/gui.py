@@ -41,6 +41,9 @@ DEFAULT_LANGUAGE = "chinese"
 BACKUP_MODES = ("bak", "git", "none")
 # 除 TL 注入（写进游戏 game/tl/）外，其余产物一律集中到这个目录。
 OUTPUT_DIR_NAME = "renpy-toolkit-数据"
+# 页面每 4 秒一次心跳；连续这么久没有请求就认为页面已经关掉。
+# 只认心跳、不认浏览器进程：关掉标签页但浏览器还开着时进程仍然活着。
+QUIET_SECONDS = 20.0
 # 一级子目录里出现这些名字就不当游戏候选：它们是工具自己的产物目录。
 _SKIP_DIRS = frozenset(
     {"工作区域", "可清理文件", "成品提交", "node_modules", "__pycache__", OUTPUT_DIR_NAME}
@@ -1484,9 +1487,9 @@ def main(argv: list[str] | None = None) -> int:
 
     启动顺序：危险路径闸 → 单实例闸 → 起服务 → 等就绪 → 开浏览器。
 
-    **默认在用户自己的浏览器里开一个普通标签页**（``--tab`` 的行为）：复用它
-    已经开着的浏览器进程，既不新建 profile、也不会连带打开扩展页。想单独一个
-    无地址栏窗口时用 ``--app``。
+    **默认开一个独立的无地址栏窗口**（``--app`` 的行为）：窗口关掉工具就退出，
+    不会在你正在用的浏览器里留下标签页。想用自己浏览器的一个普通标签页时用
+    ``--tab``——但那种情况下「关标签页」只能靠心跳超时发现，见下方退出循环。
 
     ``--port N`` 固定端口、``--no-browser`` 只起服务不拉浏览器 —— 这两个主要
     为自动化验收存在（冻结包在无桌面会话里也能被脚本驱动）。
@@ -1494,7 +1497,7 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     port_wanted = 0
     open_browser = True
-    tab_mode = True          # 默认标签页模式，见上方 docstring
+    tab_mode = False         # 默认独立窗口，见上方 docstring（--tab 才用标签页）
     for i, item in enumerate(argv):
         if item == "--port" and i + 1 < len(argv):
             port_wanted = int(argv[i + 1])
@@ -1664,7 +1667,10 @@ def main(argv: list[str] | None = None) -> int:
         # 服务寿命不绑浏览器进程句柄：某些启动器把窗口交给已有进程后自身会立刻
         # 退出，用 proc.wait() 会连带把服务关掉，窗口就变成永远「连不上」。
         idle_limit = 6 * 3600.0
-        quiet_limit = 40.0 if not procs else 120.0
+        # 只认页面心跳，不认浏览器进程句柄：用户关掉标签页后浏览器整个还开着，
+        # 我们拉起的那个进程依然活着，绑它就会一直等下去（表现就是「关了页面
+        # 工具还在跑」）。页面每 4 秒一次心跳，20 秒没有就认为页面已关。
+        quiet_limit = QUIET_SECONDS
         while True:
             if api.stop_event.wait(1.0):
                 _slog("收到退出请求")

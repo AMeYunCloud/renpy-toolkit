@@ -372,3 +372,14 @@ class TestLogTranslation(unittest.TestCase):
 
     def test_unknown_line_is_untouched(self) -> None:
         self.assertEqual(gui._zh_line("some random output"), "some random output")
+
+class TestShutdownByHeartbeat(unittest.TestCase):
+    """关页面要能退出：只认心跳，不认浏览器进程。"""
+
+    def test_quiet_window_is_twenty_seconds(self) -> None:
+        # 页面 4 秒一次心跳，20 秒 = 连续丢 5 次；再长会让用户以为「没关掉」。
+        self.assertEqual(gui.QUIET_SECONDS, 20.0)
+
+    def test_quiet_window_is_shorter_than_the_old_browser_bound_value(self) -> None:
+        # 之前 tab 模式 40 秒、拉起过浏览器进程时 120 秒；120 秒看起来就是没关。
+        self.assertLess(gui.QUIET_SECONDS, 40.0)

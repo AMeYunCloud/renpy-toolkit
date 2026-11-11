@@ -565,7 +565,7 @@ function applyBoot(r) {
   } else {
     nb.classList.remove('show');
   }
-  if (r.mode === 'tab') $('btnQuit').style.display = '';
+  $('btnQuit').style.display = '';   // 两种模式都给一个显式退出入口
   renderCtx();
   renderGames();
   if (r.groups) renderActions(r.groups);

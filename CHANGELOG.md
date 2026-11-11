@@ -101,6 +101,15 @@ after a Ren'Py upgrade.
 
 **Windows exe (GUI)**
 
+- Closing the page now really stops the tool. The service lifetime used to be 40 s
+  without a browser process and 120 s when one had been launched — but closing a tab
+  leaves the browser process alive, so the 120 s branch was chosen and it looked like
+  the tool never exited. It is now a single `QUIET_SECONDS = 20.0` heartbeat timeout
+  that ignores browser processes entirely (an in-flight task still finishes first).
+- A dedicated window is the default again (`--app`); `--tab` opts into a tab in the
+  user's own browser. Both modes show a 「退出工具」 button.
+
+
 - Closing the browser page now shuts the tool down. The page sends a heartbeat
   every four seconds and fires `sendBeacon('/api/bye')` on `pagehide`; the server
   exits when no request arrives for forty seconds, so it no longer lingers in
