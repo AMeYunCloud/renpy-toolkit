@@ -15,3 +15,4 @@
 | [`renpy-translation-ecosystem.md`](./renpy-translation-ecosystem.md) | 第三方汉化生态参考：工具链、工程惯例、中文本地化难点，以及本工具包的对应实现 |
 | [`renpy-tutorial-notes.md`](./renpy-tutorial-notes.md) | 制作侧入门参考：学习 Ren'Py 脚本的推荐顺序与常见误区 |
 | [`release-notes-1.0.0.md`](./release-notes-1.0.0.md) | 1.0.0 发布说明（中文 + English，GitHub 发布页正文） |
+| [`release-notes-exe-1.0.0.md`](./release-notes-exe-1.0.0.md) | exe 一键包发布页正文（已停止维护，最后一版） |

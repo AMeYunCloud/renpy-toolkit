@@ -53,6 +53,19 @@ skill, and neither of them contains or invokes the exe.**
 | **agent skill** | `skills/renpy-toolkit/` | Let an AI assistant do the localization | Drop the whole directory into your skills directory |
 | **Windows exe** (DEPRECATED) | `renpy-toolkit-exe-<version>.zip` | Clicking buttons, no command line | Unzip next to the game folder and double-click `renpy-toolkit.exe` |
 
+**The plugin and the agent skill are the two lines we recommend.** They are the
+main line: maintained, supported, cross-platform. The Windows exe is a one-off
+convenience shell for people who will not touch a command line, and it is no
+longer maintained.
+
+### What each line is, and what it cannot do
+
+| Line | Role | Limits |
+| --- | --- | --- |
+| **Plugin / pip** (recommended) | Where every feature lives; the only line that keeps receiving updates | Needs Python 3.8+ (or the runtime bundled in the portable zip); `tl gen` must use the target game's own interpreter, `lib/py3-*/python.exe` |
+| **agent skill** (recommended for AI use) | No code — it teaches an AI assistant the same commands and judgement | Its ceiling is the plugin: with no toolkit on the machine it cannot run; if you copy the skill away, `scripts/rptk.py` must still find `plugin/dsh-renpy-toolkit` or you must set `RPTK_HOME` |
+| **Windows exe** (DEPRECATED) | A GUI shell with the same features, frozen and no longer extended | Windows only; the UI runs in your system browser, and on some machines Edge's own "can't update" page covers it (use `--tab`); on some restricted accounts the bootloader cannot create its unpack directory, so rebuild with `--runtime-tmpdir` |
+
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
 cd renpy-toolkit

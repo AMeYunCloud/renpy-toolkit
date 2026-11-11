@@ -36,6 +36,17 @@ A toolkit for Ren'Py authoring and localization. Its core capability is generati
 | **Agent skill** | 给 AI 助手用 | 把 `skills/renpy-toolkit/` 放进 skill 目录 |
 | **Windows exe**（已停止维护） | 只想点按钮，不碰命令行 | 解压 zip，放到游戏文件夹旁边，双击 `renpy-toolkit.exe` |
 
+**首推插件与 agent skill 两条线**：它们是本项目的主线，随版本更新、有支持、跨平台；
+exe 只是「不想碰命令行」的一次性便利形态，已停止维护。
+
+#### 各有各的分工，也各有各的局限
+
+| 线 | 分工 | 局限 |
+|---|---|---|
+| **插件 / pip**（首推） | 全部功能的唯一落点，也是唯一持续更新的线 | 需要 Python 3.8+（或用便携 zip 自带运行时）；`tl gen` 必须由**目标游戏自带**的 `lib/py3-*/python.exe` 来跑，工具自身无法替代 |
+| **agent skill**（首推·AI 场景） | 不含代码，只把同一套命令与判断教给 AI 助手 | 能力上限等于插件：本机没有工具包就跑不动；拷走 skill 目录时 `scripts/rptk.py` 必须能定位 `plugin/dsh-renpy-toolkit`，或设 `RPTK_HOME` |
+| **Windows exe**（已停止维护） | 图形壳，功能与插件相同，不再新增 | 仅 Windows；界面借系统浏览器，个别机器上 Edge 自己的「无法更新」页会挡住界面（改用 `--tab`）；受限账户下引导器可能建不了解包临时目录（需 `--runtime-tmpdir` 重打包）；不参与后续修复 |
+
 exe 的下载在单独的 Release：**exe-v1.0.0**。（本页只挂插件与 skill 两份产物。）
 
 > **（已停止维护）** exe 发行线已停止维护，不再随新版本发布。`exe-v1.0.0` 里的包已更新为
@@ -117,6 +128,18 @@ and neither of them contains or invokes the exe.
 | **Plugin / pip** | Python available, prefer the CLI | `pip install renpy-toolkit` (`[all]` adds Excel and font support); or unzip the portable zip and run `renpy-toolkit.cmd` |
 | **Agent skill** | AI assistants | Drop `skills/renpy-toolkit/` into the skills directory |
 | **Windows exe** (DEPRECATED) | Clicking buttons, no command line | Unzip beside the game folder, double-click `renpy-toolkit.exe` |
+
+**The plugin and the agent skill are the two lines we recommend.** They are the main
+line: maintained, supported, cross-platform. The exe is a one-off convenience shell for
+people who will not touch a command line, and it is no longer maintained.
+
+#### What each line is for, and what it cannot do
+
+| Line | Role | Limits |
+|---|---|---|
+| **Plugin / pip** (recommended) | Where every feature lives; the only line that keeps receiving updates | Needs Python 3.8+ (or the runtime bundled in the portable zip); `tl gen` must run on the **target game's own** `lib/py3-*/python.exe` |
+| **agent skill** (recommended for AI use) | No code — it teaches an AI assistant the same commands and judgement | Its ceiling is the plugin: with no toolkit on the machine it cannot run; if you copy the skill away, `scripts/rptk.py` must still locate `plugin/dsh-renpy-toolkit`, or set `RPTK_HOME` |
+| **Windows exe** (DEPRECATED) | A GUI shell with the same features, frozen, no longer extended | Windows only; the UI borrows your system browser and on some machines Edge's own "can't update" page covers it (use `--tab`); on restricted accounts the bootloader may fail to create its unpack directory (rebuild with `--runtime-tmpdir`); receives no further fixes |
 
 The exe is published as a separate release: **exe-v1.0.0**. This page carries only
 the plugin and skill artifacts.

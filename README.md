@@ -70,6 +70,16 @@ renpy-toolkit/
 | **agent skill** | `skills/renpy-toolkit/` | 让 AI 助手自己会做汉化 | 把整个目录放进 skills 目录 |
 | **Windows exe**（已停止维护） | `renpy-toolkit-exe-<version>.zip` | 只想点按钮，不碰命令行 | 解压到游戏目录旁边，双击 `renpy-toolkit.exe` |
 
+**首推插件与 agent skill 两条线**：它们是本项目的主线，随版本更新、有支持、跨平台。
+Windows exe 只是「不想碰命令行」的一次性便利形态，已停止维护。
+
+### 分工与局限
+
+| 线 | 定位 | 局限 |
+| --- | --- | --- |
+| **插件 / pip**（首推） | 全部功能的唯一落点，也是唯一持续更新的线 | 需要 Python 3.8+（或解压便携 zip 里自带的运行时）；`tl gen` 仍必须用目标游戏自带的解释器 `lib/py3-*/python.exe` |
+| **agent skill**（首推·AI 场景） | 不含代码，只把同一套命令与判断教给 AI 助手 | 能力上限等于插件：本机没有工具包时它跑不动；拷走 skill 目录要保证 `scripts/rptk.py` 能找到 `plugin/dsh-renpy-toolkit` 或设 `RPTK_HOME` |
+| **Windows exe**（已停止维护） | 不碰命令行的图形壳，功能与插件一致但不再新增 | 仅 Windows；界面走系统浏览器，个别机器上 Edge 自己的「无法更新」提示页会挡住界面（改用 `--tab`）；个别受限账户下引导器无法创建解包临时目录，需 `--runtime-tmpdir` 重打包 |
 
 ```bash
 git clone https://github.com/AMeYunCloud/renpy-toolkit.git
@@ -282,6 +292,7 @@ wrote 53 file(s)            耗时 19.6s
 | [`docs/renpy-translation-ecosystem.md`](docs/renpy-translation-ecosystem.md) | 汉化生态参考 |
 | [`docs/renpy-tutorial-notes.md`](docs/renpy-tutorial-notes.md) | 制作侧入门参考 |
 | [`docs/release-notes-1.0.0.md`](docs/release-notes-1.0.0.md) | 1.0.0 发布说明（中英双语） |
+| [`docs/release-notes-exe-1.0.0.md`](docs/release-notes-exe-1.0.0.md) | exe 一键包发布说明（已停止维护） |
 
 ## 与其他工具共存
 
